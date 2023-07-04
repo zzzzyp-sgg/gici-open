@@ -118,7 +118,7 @@ stream:
   - formator:
       io: output
       tag: fmt_solution_file
-      type: nmea 
+      type: nmea # GNSS相关协议
       use_esa: true
       use_esd: true
       talker_id: GP
@@ -130,38 +130,39 @@ stream:
 
 estimate:
 - estimator:
-    tag: est_gnss_imu_camera_rrr
-    type: spp_imu_camera_rrr
+    tag: est_gnss_imu_camera_rrr        # 
+    type: spp_imu_camera_rrr            # 求解模式
     input_tags: [fmt_gnss_rov, fmt_gnss_eph, fmt_dcb_file, fmt_camera, fmt_imu]
-    fmt_gnss_rov_roles: [rover]
-    fmt_gnss_eph_roles: [ephemeris]
-    fmt_dcb_file_roles: [code_bias]
-    fmt_camera_roles: [mono]
-    fmt_imu_roles: [major]
-    est_gnss_roles: [position]
-    output_tags: [fmt_solution_file]
+                                        # 输入数据的tag
+    fmt_gnss_rov_roles: [rover]         # gnss观测文件
+    fmt_gnss_eph_roles: [ephemeris]     # gnss星历
+    fmt_dcb_file_roles: [code_bias]     # dcb文件
+    fmt_camera_roles: [mono]            # 图像格式
+    fmt_imu_roles: [major]              # imu设置
+    est_gnss_roles: [position]          # gnss求解类型
+    output_tags: [fmt_solution_file]    # 输出文件格式
     # output_tags: [str_solution, str_solution_odometry, str_solution_path, str_featured_image, str_landmarks, fmt_solution_file]
-    output_align_tag: fmt_imu
-    output_downsample_rate: 40
-    compute_covariance: false
-    enable_input_align: true
-    input_align_latency: 0.2
-    enable_backend_data_sparsify: true
-    pending_num_threshold: 5
+    output_align_tag: fmt_imu           # 输出的基准(这里就是imu对齐吧)
+    output_downsample_rate: 40          # 输出的频率(因为比imu低所以是降采样？应该是这个意思)
+    compute_covariance: false           # 是否计算协方差
+    enable_input_align: true            # TODO 输入是否对齐？
+    input_align_latency: 0.2            # TODO 输入的延迟？
+    enable_backend_data_sparsify: true  # 后端数据稀疏化
+    pending_num_threshold: 5            # TODO 等待数的阈值
     spp_imu_camera_rrr_options:
-      max_keyframes: 5
-      min_yaw_std_init_visual: 0.5
+      max_keyframes: 5                  # 最大关键帧的数量(应该就是窗口大小吧)
+      min_yaw_std_init_visual: 0.5      # TODO 视觉初始化的std阈值？
     spp_options:
     gnss_estimator_base_options:
       gnss_common:
-        min_elevation: 12.0
-        min_SNR: [35.0, 30.0]
-      use_outlier_rejection: true
-      max_pesudorange_error: 10.0
+        min_elevation: 12.0             # 最小高度角
+        min_SNR: [35.0, 30.0]           # 最小信噪比
+      use_outlier_rejection: true       # 是否抗差
+      max_pesudorange_error: 10.0       # 伪距最大误差
     gnss_loose_estimator_base_options:
     visual_estimator_base_options:
-      feature_error_std: 10.0
-      stable_feature_error_std: 1.0
+      feature_error_std: 10.0           # 特征点的误差
+      stable_feature_error_std: 1.0     # 对应的std
       min_observation_stable: 20
       landmark_outlier_rejection_threshold: 4.0
     imu_estimator_base_options:

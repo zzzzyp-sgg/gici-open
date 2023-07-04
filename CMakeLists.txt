@@ -1,9 +1,10 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(gici)
 
 # Set build flags. 
 set(CMAKE_CXX_FLAGS "-std=c++11" )
 set(CMAKE_CXX_FLAGS "-fpermissive")
+set(CMAKE_BUILD_TYPE "Release") # Release 模式下用了一些库来加速
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
   if (IS_ARM)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon -march=armv7-a")
@@ -23,6 +24,7 @@ find_package(yaml-cpp REQUIRED)
 # Glog
 find_package(glog REQUIRED)
 # Ceres-solver
+set(Ceres_DIR /home/zyp/bin/ceres-solver-2.1.0/usr/local/lib/cmake/Ceres)
 find_package(Ceres REQUIRED)
 # Fast feature detector
 add_subdirectory(third_party/fast)
