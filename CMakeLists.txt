@@ -5,6 +5,7 @@ project(gici)
 set(CMAKE_CXX_FLAGS "-std=c++11" )
 set(CMAKE_CXX_FLAGS "-fpermissive")
 set(CMAKE_BUILD_TYPE "Release") # Release 模式下用了一些库来加速
+message(STATUS "${CMAKE_BUILD_TYPE}")
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
   if (IS_ARM)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon -march=armv7-a")
@@ -22,9 +23,10 @@ find_package(OpenCV 4 REQUIRED)
 # Yaml-cpp 
 find_package(yaml-cpp REQUIRED)
 # Glog
+# set(GLOG_LIBRARY /usr/loacl/lib/camke/glog)
 find_package(glog REQUIRED)
 # Ceres-solver
-set(Ceres_DIR /home/zyp/bin/ceres-solver-2.1.0/usr/local/lib/cmake/Ceres)
+set(Ceres_DIR /home/zyp/bin/lib/cmake/Ceres)
 find_package(Ceres REQUIRED)
 # Fast feature detector
 add_subdirectory(third_party/fast)
