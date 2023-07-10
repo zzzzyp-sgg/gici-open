@@ -52,7 +52,7 @@ int main(int argc, char** argv)
   }
 
   // Initialize signal handles to catch faults
-  initializeSignalHandles();
+  initializeSignalHandles(); /* 主要用来正确处理SIGPIPE信号和SIGSEGV信号的异常情况 */
 
   // Organize nodes
   NodeOptionHandlePtr node_option_handle = 
@@ -63,8 +63,8 @@ int main(int argc, char** argv)
   }
 
   // Initialize nodes
-  std::unique_ptr<NodeHandle> node_handle = 
-    std::make_unique<NodeHandle>(node_option_handle);
+  std::unique_ptr<NodeHandle> node_handle =           /* 这里进来读配置文件 */
+    std::make_unique<NodeHandle>(node_option_handle); /* 同时，这里会创建streamer和estimate的线程 */
 
   // Show information
   const std::vector<size_t> sizes = {
