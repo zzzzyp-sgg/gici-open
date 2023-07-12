@@ -20,9 +20,9 @@ NodeHandle::NodeHandle(const NodeOptionHandlePtr& nodes)
     std::string type_str = nodes->streamers[i]->type;
     StreamerType type;
     option_tools::convert(type_str, type);
-    if (type == StreamerType::Ros) continue;
+    if (type == StreamerType::Ros) continue;  // ROS模式
 
-    auto streaming = std::make_shared<Streaming>(nodes, i);
+    auto streaming = std::make_shared<Streaming>(nodes, i); // 这里是读streamers
     if (!streaming->valid()) continue;
     streamings_.push_back(streaming);
   }
@@ -34,7 +34,7 @@ NodeHandle::NodeHandle(const NodeOptionHandlePtr& nodes)
     option_tools::convert(type_str, type);
 
     if (type != EstimatorType::None) {
-      auto estimating = std::make_shared<MultiSensorEstimating>(nodes, i);
+      auto estimating = std::make_shared<MultiSensorEstimating>(nodes, i);    // estimators
       estimatings_.push_back(estimating);
     }
   }

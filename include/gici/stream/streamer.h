@@ -18,7 +18,7 @@
 
 namespace gici {
 
-enum class StreamerType {
+enum class StreamerType {     // Streamer的类型
   Serial = STR_SERIAL,
   TcpClient = STR_TCPCLI,
   TcpServer = STR_TCPSVR,
@@ -29,7 +29,7 @@ enum class StreamerType {
   Ros
 };
 
-enum class StreamerRWType {
+enum class StreamerRWType {   // 读写类型
   Read = STR_MODE_R,
   Write = STR_MODE_W,
   ReadAndWrite = STR_MODE_RW
@@ -57,13 +57,13 @@ public:
     strclose(&stream_);
   }
 
-  // Read data from stream
+  // Read data from stream(读数据的主要函数)
   virtual int read(uint8_t *buf, int max_size) {
     if (disable_) return 0;
     return strread(&stream_, buf, max_size);
   }
 
-  // Write data to stream
+  // Write data to stream(写数据的主要函数)
   virtual int write(uint8_t *buf, int size) {
     if (disable_) return 0;
     return strwrite(&stream_, buf, size);

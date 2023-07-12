@@ -21,15 +21,15 @@ NodeOptionHandle::NodeOptionHandle(const YAML::Node& yaml_node) :
     const YAML::Node& stream_node = yaml_node["stream"];
 
     // Load streamers
-    if (stream_node["streamers"].IsDefined()) {
-      const YAML::Node& streamer_nodes = stream_node["streamers"];
+    if (stream_node["streamers"].IsDefined()) {     // 有没有stream
+      const YAML::Node& streamer_nodes = stream_node["streamers"];  // 把里面的streamers提出来
       for (size_t i = 0; i < streamer_nodes.size(); i++) {
         const YAML::Node& streamer_node = streamer_nodes[i]["streamer"];
         StreamerNodeBasePtr streamer = 
-          std::make_shared<StreamerNodeBase>(streamer_node);
-        streamers.push_back(streamer);
+          std::make_shared<StreamerNodeBase>(streamer_node);  // 把每一个streamers再初始化成对应的StreamerNodeBase类
+        streamers.push_back(streamer);  // 然后存在成员变量vector<streamers>里
         nodes.push_back(std::static_pointer_cast<NodeBase>(streamer));
-        tag_to_node.insert(std::make_pair(nodes.back()->tag, nodes.back()));
+        tag_to_node.insert(std::make_pair(nodes.back()->tag, nodes.back()));  // 再把node和tag对应起来
       }
     }
 
@@ -71,11 +71,11 @@ NodeOptionHandle::NodeOptionHandle(const YAML::Node& yaml_node) :
   // Organize connections
   for (size_t i = 0; i < nodes.size(); i++) {
     if (nodes[i]->input_tags.size() > 0) 
-    for (auto& input_tag : nodes[i]->input_tags) {
-      for (size_t j = 0; j < nodes.size(); j++) {
-        if (nodes[j]->tag != input_tag) continue;
-        if (!tagExists(nodes[j]->output_tags, nodes[i]->tag)) {
-          nodes[j]->output_tags.push_back(nodes[i]->tag);
+    for (auto& input_tag : nodes[i]->input_tags) {  // 第i个node的input_tag
+      for (size_t j = 0; j < nodes.size(); j++) {   // 然后遍历所有的node
+        if (nodes[j]->tag != input_tag) continue;   // 找到和input_tag相同的
+        if (!tagExists(nodes[j]->output_tags, nodes[i]->tag)) { // 如果output_tag中没有
+          nodes[j]->output_tags.push_back(nodes[i]->tag); // 就加进去
         }
       }
     }
@@ -294,7 +294,7 @@ NodeOptionHandle::FormatorNodeBase::FormatorNodeBase(const YAML::Node& yaml_node
     LOG(ERROR) << "Invalid tag name for formator: " << tag << "!";
     valid = false; return;
   }
-  if (!option_tools::safeGet(yaml_node, "io", &io)) {
+  if (!option_tools::safeGet(yaml_node, "io", &io)) { // foemator这里控制一下io
     LOG(ERROR) << "Unable to load io type!";
     valid = false; return;
   }

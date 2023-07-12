@@ -122,7 +122,7 @@ Streaming::Streaming(const NodeOptionHandlePtr& nodes, size_t i_streamer) :
 
   // Get messages to send on start-up
   std::string message;
-  option_tools::safeGet(streamer_node, "start_message", &message);
+  option_tools::safeGet(streamer_node, "start_message", &message);  // TODO start_message没看明白是干啥的
   if (message.size() > 0 && !has_input_) {
     LOG(ERROR) << tag_ << ": The start_message options only works with input streams!";
     return;
@@ -344,7 +344,7 @@ void Streaming::enableReplay(StreamerReplayOptions option)
 void Streaming::processInput()
 {
   // Read data from stream
-  buf_size_input_ = streamer_->read(buf_input_, max_buf_size_);
+  buf_size_input_ = streamer_->read(buf_input_, max_buf_size_); // 把文件先读到buf_input_h中
   if (buf_size_input_ == 0) return;
 
   // Decode stream
@@ -352,7 +352,7 @@ void Streaming::processInput()
     if (formators_[i].type != StreamIOType::Input) continue;
     std::shared_ptr<FormatorBase>& formator = formators_[i].formator;
     std::vector<std::shared_ptr<DataCluster>>& dataset = data_clusters_[i];
-    int nobs = formator->decode(buf_input_, buf_size_input_, dataset);
+    int nobs = formator->decode(buf_input_, buf_size_input_, dataset);  // 解码文件然后放到dataset中
 
     // Call convertion callbacks
     for (int iobs = 0; iobs < nobs; iobs++) {

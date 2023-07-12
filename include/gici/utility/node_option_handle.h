@@ -76,15 +76,15 @@ public:
   using EstimatorNodeBasePtr = std::shared_ptr<EstimatorNodeBase>;
 
   // Whether the configurations are valid
-  bool valid;
+  bool valid;                                     // 配置文件是否有效
   
   // Nodes
-  YAML::Node replay_options;
+  YAML::Node replay_options;                      // replay节点
   std::vector<NodeBasePtr> nodes;
-  std::vector<StreamerNodeBasePtr> streamers;
-  std::vector<FormatorNodeBasePtr> formators;
-  std::vector<EstimatorNodeBasePtr> estimators;
-  std::map<std::string, NodeBasePtr> tag_to_node;
+  std::vector<StreamerNodeBasePtr> streamers;     // streamers节点
+  std::vector<FormatorNodeBasePtr> formators;     // 对应的formators
+  std::vector<EstimatorNodeBasePtr> estimators;   // estimators节点
+  std::map<std::string, NodeBasePtr> tag_to_node; // 把tag和nide对应起来的变量
 
 private:
   // Check if the options of all nodes valid
