@@ -33,6 +33,14 @@ RtkEstimator::RtkEstimator(const RtkEstimatorOptions& options,
 
   // Ambiguity resolution
   ambiguity_resolution_.reset(new AmbiguityResolution(ambiguity_options, graph_));
+
+  // Open intermediate data logging files
+  if (base_options_.log_intermediate_data) {
+    const std::string& directory = base_options_.log_intermediate_data_directory;
+    createAmbiguityLogger(directory);
+    createDdPseudorangeResidualLogger(directory);
+    createDdPhaserangeResidualLogger(directory);
+  }
 }
 
 // The default destructor
@@ -78,8 +86,16 @@ bool RtkEstimator::addGnssMeasurementAndState(
   gnss_common::rearrangePhasesAndCodes(curGnssRef());
 
   // Form double difference pair
+<<<<<<< HEAD
   GnssMeasurementDDIndexPairs index_pairs = gnss_common::formPhaserangeDDPair(
     curGnssRov(), curGnssRef(), gnss_base_options_.common);   // 双差
+=======
+  std::map<char, std::string> system_to_base_prn;
+  GnssMeasurementDDIndexPairs phase_index_pairs = gnss_common::formPhaserangeDDPair(
+    curGnssRov(), curGnssRef(), system_to_base_prn, gnss_base_options_.common);
+  GnssMeasurementDDIndexPairs code_index_pairs = gnss_common::formPseudorangeDDPair(
+    curGnssRov(), curGnssRef(), system_to_base_prn, gnss_base_options_.common);
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
 
   // Cycle-slip detection
   if (!isFirstEpoch()) {
@@ -95,9 +111,15 @@ bool RtkEstimator::addGnssMeasurementAndState(
   curState().id = position_id;
   curState().id_in_graph = position_id;
   // ambiguity blocks
+<<<<<<< HEAD
   addSdAmbiguityParameterBlocks(curGnssRov(),   // 模糊度参数块
     curGnssRef(), index_pairs, curGnssRov().id, curAmbiguityState());
   if (rtk_options_.estimate_velocity) {         // 也是判断是否估计速度
+=======
+  addSdAmbiguityParameterBlocks(curGnssRov(), 
+    curGnssRef(), phase_index_pairs, curGnssRov().id, curAmbiguityState());
+  if (rtk_options_.estimate_velocity) {
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
     // velocity block
     addGnssVelocityParameterBlock(curGnssRov().id, velocity_prior);
     // frequency block
@@ -107,8 +129,13 @@ bool RtkEstimator::addGnssMeasurementAndState(
   
   // Add pseudorange residual blocks
   int num_valid_satellite = 0;
+<<<<<<< HEAD
   addDdPseudorangeResidualBlocks(curGnssRov(),  // 双差伪距残差 
     curGnssRef(), index_pairs, curState(), num_valid_satellite);
+=======
+  addDdPseudorangeResidualBlocks(curGnssRov(), 
+    curGnssRef(), code_index_pairs, curState(), num_valid_satellite);
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
 
   // Check if insufficient satellites
   if (!checkSufficientSatellite(num_valid_satellite, 0)) {
@@ -125,11 +152,26 @@ bool RtkEstimator::addGnssMeasurementAndState(
   num_satellites_ = num_valid_satellite;
 
   // Add phaserange residual blocks
+<<<<<<< HEAD
   addDdPhaserangeResidualBlocks(curGnssRov(), curGnssRef(), index_pairs, curState()); // 相位双差残差
+=======
+  addDdPhaserangeResidualBlocks(
+    curGnssRov(), curGnssRef(), phase_index_pairs, curState());
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
 
   // Add doppler residual blocks
   if (rtk_options_.estimate_velocity) {
     addDopplerResidualBlocks(curGnssRov(), curState(), num_valid_satellite);          // 多普勒残差
+  }
+
+  // Add position and velocity prior constraints
+  if (isFirstEpoch()) {
+    addGnssPositionResidualBlock(curState(), 
+      position_prior, gnss_base_options_.error_parameter.initial_position);
+    if (rtk_options_.estimate_velocity) {
+      addGnssVelocityResidualBlock(curState(), 
+        velocity_prior, gnss_base_options_.error_parameter.initial_velocity);
+    }
   }
 
   // Add relative errors
@@ -140,9 +182,15 @@ bool RtkEstimator::addGnssMeasurementAndState(
     }
     else {
       // position and velocity
+<<<<<<< HEAD
       addRelativePositionAndVelocityBlock(lastState(), curState()); // 速度和位置
       // frequency
       addRelativeFrequencyBlock(lastState(), curState());           // 频率
+=======
+      addRelativePositionAndVelocityResidualBlock(lastState(), curState());
+      // frequency
+      addRelativeFrequencyResidualBlock(lastState(), curState());
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
     }
     // ambiguity
     addRelativeAmbiguityResidualBlock(                              // 模糊度残差
@@ -150,7 +198,11 @@ bool RtkEstimator::addGnssMeasurementAndState(
   }
 
   // Compute DOP
+<<<<<<< HEAD
   updateGdop(curGnssRov(), index_pairs);  // 更新DOP值
+=======
+  updateGdop(curGnssRov(), code_index_pairs);
+>>>>>>> b7429135797720d733cfe2117b8a208ea78806dc
 
   return true;
 }
@@ -261,6 +313,15 @@ bool RtkEstimator::estimate()
   shiftMemory();
 
   return true;
+}
+
+// Log intermediate data
+void RtkEstimator::logIntermediateData()
+{
+  if (!base_options_.log_intermediate_data) return;
+  logAmbiguityEstimate();
+  logDdPseudorangeResidual();
+  logDdPhaserangeResidual();
 }
 
 // Marginalization
