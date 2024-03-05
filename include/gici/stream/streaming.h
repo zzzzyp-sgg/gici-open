@@ -93,7 +93,7 @@ public:
     pipelines_convert_[input_tag].insert(std::make_pair(log_tag, pipeline));
   }
 
-  // Get teg
+  // Get tag
   std::string getTag() { return tag_; }
 
   // Bind input and logging streams

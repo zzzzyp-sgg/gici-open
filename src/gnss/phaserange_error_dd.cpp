@@ -278,7 +278,7 @@ bool PhaserangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
     }
 
     // Ambiguity
-    Eigen::Matrix<double, 1, 1> J_amb = -Eigen::MatrixXd::Identity(1, 1);
+    Eigen::Matrix<double, 1, 1> J_amb = -Eigen::MatrixXd::Identity(1, 1); // 模糊度对应的雅可比部分
     Eigen::Matrix<double, 1, 1> J_amb_base = Eigen::MatrixXd::Identity(1, 1);
 
     // Troposphere

@@ -32,7 +32,7 @@ RtkImuCameraRrrEstimator::RtkImuCameraRrrEstimator(
   type_ = EstimatorType::RtkImuCameraRrr;
   is_use_phase_ = true;
   states_.push_back(State());
-  gnss_measurement_pairs_.push_back(
+  gnss_measurement_pairs_.push_back(  // base和rover对应
     std::make_pair(GnssMeasurement(), GnssMeasurement()));
   frame_bundles_.push_back(nullptr);
   num_satellites_ = 0;
@@ -41,7 +41,7 @@ RtkImuCameraRrrEstimator::RtkImuCameraRrrEstimator(
   initializer_sub_estimator_.reset(new RtkEstimator(
     rtk_options, gnss_base_options, base_options, ambiguity_options));
   gnss_imu_initializer_.reset(new GnssImuInitializer(
-    init_options, gnss_loose_base_options, imu_base_options, 
+    init_options, gnss_loose_base_options, imu_base_options,  // 这里都会用到GNSS松组合的设置
     base_options, graph_, initializer_sub_estimator_));
 
   // Ambiguity resolution
@@ -70,16 +70,16 @@ bool RtkImuCameraRrrEstimator::addMeasurement(const EstimatorDataCluster& measur
   if (coordinate_ == nullptr || !gravity_setted_) return false;
   if (!gnss_imu_initializer_->finished()) {
     if (gnss_imu_initializer_->getCoordinate() == nullptr) {
-      gnss_imu_initializer_->setCoordinate(coordinate_);
-      initializer_sub_estimator_->setCoordinate(coordinate_);
+      gnss_imu_initializer_->setCoordinate(coordinate_);        // GNSS/IMU的初始坐标
+      initializer_sub_estimator_->setCoordinate(coordinate_);   // RTK的初始坐标
       gnss_imu_initializer_->setGravity(imu_base_options_.imu_parameters.g);
     }
-    if (gnss_imu_initializer_->addMeasurement(measurement)) {
-      gnss_imu_initializer_->estimate();
+    if (gnss_imu_initializer_->addMeasurement(measurement)) { // TODO 所以这里是IMU和GNSS是可能存于与data的？
+      gnss_imu_initializer_->estimate();                      // GNSS/IMU初始化
       // set result to estimator
       setInitializationResult(gnss_imu_initializer_);
     }
-    return false;
+    return false;   // 这里直接返回false，说明加入的measurement必须是初始化之后的
   }
 
   // Add IMU
@@ -107,7 +107,7 @@ bool RtkImuCameraRrrEstimator::addMeasurement(const EstimatorDataCluster& measur
 
   // Add images
   if (measurement.frame_bundle) {
-    if (!visual_initialized_) return visualInitialization(measurement.frame_bundle);
+    if (!visual_initialized_) return visualInitialization(measurement.frame_bundle);  // 视觉初始化
     return addImageMeasurementAndState(measurement.frame_bundle);
   }
 
@@ -233,7 +233,7 @@ bool RtkImuCameraRrrEstimator::addImageMeasurementAndState(
   BackendId pose_id = createNFrameId(bundle_id);
   size_t index;
   if (speed_and_bias != SpeedAndBias::Zero()) {
-    index = insertImuState(timestamp, pose_id, 
+    index = insertImuState(timestamp, pose_id,          // TODO 加入IMU状态
       curFrame()->T_world_imu(), speed_and_bias, true);
   }
   else {
@@ -249,9 +249,9 @@ bool RtkImuCameraRrrEstimator::addImageMeasurementAndState(
   }
 
   // Initialize landmarks
-  if (visual_initialized_ && curFrame()->isKeyframe()) {
+  if (visual_initialized_ && curFrame()->isKeyframe()) {  // 在最开始三角化的时候就不会进到这里
     curFrame()->set_T_w_imu(getPoseEstimate(states_[index]));
-    feature_handler_->initializeLandmarks(curFrame());
+    feature_handler_->initializeLandmarks(curFrame());    // 三角化地图点
   }
 
   // Add Landmark parameters and minimal resiudals at keyframe
@@ -260,7 +260,7 @@ bool RtkImuCameraRrrEstimator::addImageMeasurementAndState(
   }
 
   // Add landmark observations
-  addReprojectionErrorResidualBlocks(states_[index], curFrame());
+  addReprojectionErrorResidualBlocks(states_[index], curFrame()); // 重投影误差
 
   return true;
 }
@@ -270,14 +270,14 @@ bool RtkImuCameraRrrEstimator::visualInitialization(const FrameBundlePtr& frame_
 {
   // store poses
   do_not_remove_imu_measurements_ = true;
-  Solution solution;
+  Solution solution;    // 记录下目前最新状态的时间、位姿、速度等等
   solution.timestamp = getTimestamp();
   solution.pose = getPoseEstimate();
   solution.speed_and_bias = getSpeedAndBiasEstimate();
   init_solution_store_.push_back(solution);
   // store keyframes
   if (frame_bundle->isKeyframe()) {
-    init_keyframes_.push_back(frame_bundle);
+    init_keyframes_.push_back(frame_bundle);  // 初始化相当于只用2个关键帧
     while (init_keyframes_.size() > 2) init_keyframes_.pop_front();
   } 
   if (init_keyframes_.size() < 2) return false;
@@ -293,14 +293,14 @@ bool RtkImuCameraRrrEstimator::visualInitialization(const FrameBundlePtr& frame_
     for (size_t i = 1; i < init_solution_store_.size(); i++) {
       double dt1 = init_solution_store_[i].timestamp - timestamp;
       double dt2 = init_solution_store_[i - 1].timestamp - timestamp;
-      if ((dt1 >= 0 && dt2 <= 0) || 
+      if ((dt1 >= 0 && dt2 <= 0) ||                           // 找到对应的时间段
           (i == init_solution_store_.size() - 1) && dt1 < 0 && fabs(dt1) < 2.0) {
         size_t idx = (dt1 >= 0 && dt2 <= 0) ? (i - 1) : i;
         Transformation T_WS = init_solution_store_[idx].pose;
         SpeedAndBias speed_and_bias = init_solution_store_[idx].speed_and_bias;
-        imuIntegration(init_solution_store_[idx].timestamp, 
+        imuIntegration(init_solution_store_[idx].timestamp,   // TODO IMU预积分
           timestamp, T_WS, speed_and_bias);
-        speed_and_biases.push_back(speed_and_bias);
+        speed_and_biases.push_back(speed_and_bias);           // 预积分会更新速度和零偏
         frame_bundle->set_T_W_B(T_WS);
         found = true;
         break;

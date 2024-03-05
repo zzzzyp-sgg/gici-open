@@ -71,17 +71,17 @@ public:
   // Check if we can continue under downsampling
   inline bool checkDownsampling(const std::string& tag) {
     if (++output_downsample_cnt_ < output_downsample_rate_) {
-      return false;
+      return false;         // 小于降采样设置的值的话就不输出
     }
     else {
-      output_downsample_cnt_ = 0; 
+      output_downsample_cnt_ = 0; // 输出了的话就重新置为0，以便下一个循环再次判断
       return true;
     }
     return true;
   }
 
 private:
-	// Loop processing
+	// Loop processing(循环处理)
 	void run();
 
 protected:
@@ -96,7 +96,7 @@ protected:
   int pending_num_threshold_ = 0;
   int pending_sparsify_num_ = 0;
   // if user setted "loop_duration" as zero, we align the output rate to this input stream
-  std::string output_align_tag_;
+  std::string output_align_tag_;  // 见manual P7
   // Output downsampling
   int output_downsample_rate_;
   int output_downsample_cnt_;
@@ -109,7 +109,7 @@ protected:
   // Estimator control
   std::string tag_;  // estimator tag
   EstimatorType type_;
-  std::shared_ptr<EstimatorBase> estimator_;
+  std::shared_ptr<EstimatorBase> estimator_;  // TODO
   bool compute_covariance_;
 
   // Solutions

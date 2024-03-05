@@ -43,9 +43,9 @@ RtkEstimator::~RtkEstimator()
 bool RtkEstimator::addMeasurement(const EstimatorDataCluster& measurement)
 {
   GnssMeasurement rov, ref;
-  meausrement_align_.add(measurement);
-  if (meausrement_align_.get(rtk_options_.max_age, rov, ref)) {
-    return addGnssMeasurementAndState(rov, ref);
+  meausrement_align_.add(measurement);      // 这里会根据是rover还是base放到不同的成员变量里
+  if (meausrement_align_.get(rtk_options_.max_age, rov, ref)) { // get可以理解为把rov和ref对应起来了
+    return addGnssMeasurementAndState(rov, ref);  // TODO
   }
 
   return false;
@@ -63,6 +63,7 @@ bool RtkEstimator::addGnssMeasurementAndState(
   if (!spp_estimator_->estimate()) {
     return false;
   }
+  // 位置和速度先验约束
   Eigen::Vector3d position_prior = spp_estimator_->getPositionEstimate();
   Eigen::Vector3d velocity_prior = spp_estimator_->getVelocityEstimate();
   curState().status = GnssSolutionStatus::Single;
@@ -78,7 +79,7 @@ bool RtkEstimator::addGnssMeasurementAndState(
 
   // Form double difference pair
   GnssMeasurementDDIndexPairs index_pairs = gnss_common::formPhaserangeDDPair(
-    curGnssRov(), curGnssRef(), gnss_base_options_.common);
+    curGnssRov(), curGnssRef(), gnss_base_options_.common);   // 双差
 
   // Cycle-slip detection
   if (!isFirstEpoch()) {
@@ -94,9 +95,9 @@ bool RtkEstimator::addGnssMeasurementAndState(
   curState().id = position_id;
   curState().id_in_graph = position_id;
   // ambiguity blocks
-  addSdAmbiguityParameterBlocks(curGnssRov(), 
+  addSdAmbiguityParameterBlocks(curGnssRov(),   // 模糊度参数块
     curGnssRef(), index_pairs, curGnssRov().id, curAmbiguityState());
-  if (rtk_options_.estimate_velocity) {
+  if (rtk_options_.estimate_velocity) {         // 也是判断是否估计速度
     // velocity block
     addGnssVelocityParameterBlock(curGnssRov().id, velocity_prior);
     // frequency block
@@ -106,7 +107,7 @@ bool RtkEstimator::addGnssMeasurementAndState(
   
   // Add pseudorange residual blocks
   int num_valid_satellite = 0;
-  addDdPseudorangeResidualBlocks(curGnssRov(), 
+  addDdPseudorangeResidualBlocks(curGnssRov(),  // 双差伪距残差 
     curGnssRef(), index_pairs, curState(), num_valid_satellite);
 
   // Check if insufficient satellites
@@ -124,32 +125,32 @@ bool RtkEstimator::addGnssMeasurementAndState(
   num_satellites_ = num_valid_satellite;
 
   // Add phaserange residual blocks
-  addDdPhaserangeResidualBlocks(curGnssRov(), curGnssRef(), index_pairs, curState());
+  addDdPhaserangeResidualBlocks(curGnssRov(), curGnssRef(), index_pairs, curState()); // 相位双差残差
 
   // Add doppler residual blocks
   if (rtk_options_.estimate_velocity) {
-    addDopplerResidualBlocks(curGnssRov(), curState(), num_valid_satellite);
+    addDopplerResidualBlocks(curGnssRov(), curState(), num_valid_satellite);          // 多普勒残差
   }
 
   // Add relative errors
   if (!isFirstEpoch()) {
     if (!rtk_options_.estimate_velocity) {
       // position
-      addRelativePositionResidualBlock(lastState(), curState());
+      addRelativePositionResidualBlock(lastState(), curState());    // 相对位置残差
     }
     else {
       // position and velocity
-      addRelativePositionAndVelocityBlock(lastState(), curState());
+      addRelativePositionAndVelocityBlock(lastState(), curState()); // 速度和位置
       // frequency
-      addRelativeFrequencyBlock(lastState(), curState());
+      addRelativeFrequencyBlock(lastState(), curState());           // 频率
     }
     // ambiguity
-    addRelativeAmbiguityResidualBlock(
+    addRelativeAmbiguityResidualBlock(                              // 模糊度残差
       lastGnssRov(), curGnssRov(), lastAmbiguityState(), curAmbiguityState());
   }
 
   // Compute DOP
-  updateGdop(curGnssRov(), index_pairs);
+  updateGdop(curGnssRov(), index_pairs);  // 更新DOP值
 
   return true;
 }

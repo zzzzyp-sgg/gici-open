@@ -142,7 +142,7 @@ bool ImuEstimatorBase::getPoseEstimateAt(
   const double timestamp, Transformation& T_WS)
 {
   // Check if we have already applied integration
-  if (checkEqual(timestamp, last_timestamp_)) {
+  if (checkEqual(timestamp, last_timestamp_)) { // 当前时间和最新的时间戳相同的话，就直接返回
     T_WS = last_T_WS_; return true;
   }
 
@@ -164,7 +164,7 @@ bool ImuEstimatorBase::getPoseEstimateAt(
     imu_state_mutex_.unlock(); return false;
   }
   // not sufficiant IMU data
-  if (imu_measurements_.back().timestamp < timestamp) { 
+  if (imu_measurements_.back().timestamp < timestamp) { // 当前的时间比窗口内的IMU还要新
     imu_state_mutex_.unlock(); return false;
   }
 
@@ -209,7 +209,7 @@ bool ImuEstimatorBase::getPoseEstimateAt(
   imu_state_mutex_.unlock();
 
   // store for other function call or latter call
-  last_timestamp_ = timestamp;
+  last_timestamp_ = timestamp;  // 完成更新
   last_base_state_ = base_state;
   last_T_WS_ = T_WS;
   last_speed_and_bias_ = speed_and_bias;
@@ -228,9 +228,9 @@ bool ImuEstimatorBase::getSpeedAndBiasEstimateAt(
   }
 
   // Apply integration
-  Transformation T_WS;
+  Transformation T_WS;  // 这里的T_WS相当于只是个临时变量
   if (!getPoseEstimateAt(timestamp, T_WS)) return false;
-  speed_and_bias = last_speed_and_bias_;
+  speed_and_bias = last_speed_and_bias_;  // 主要是更新了速度和零偏
 
   return true;
 }
@@ -255,7 +255,7 @@ bool ImuEstimatorBase::getCovarianceAt(
   // Apply integration
   Transformation T_WS;
   if (!getPoseEstimateAt(timestamp, T_WS)) return false;
-  covariance = last_covariance_;
+  covariance = last_covariance_;  // 同理，主要是更新了协方差
 
   return true;
 }
@@ -453,7 +453,7 @@ size_t ImuEstimatorBase::insertImuState(
   double latest_timestamp = 0.0;
   int valid_state_index = states_.size();
   for (auto it = states_.rbegin(); it != states_.rend(); it++) {
-    valid_state_index--;
+    valid_state_index--;  // 加了一层循环的目的就是为了保证状态是有效的
     if (it->valid()) {
       latest_timestamp = it->timestamp; break;
     }
@@ -463,7 +463,7 @@ size_t ImuEstimatorBase::insertImuState(
   // Free the pre-allocated memory
   if (has_invalid_state) states_.pop_back();
 
-  // Check if it overlaps with existing state
+  // Check if it overlaps with existing state(和states_里的重叠)
   int overlap_index = -1;
   for (size_t i = 0; i < states_.size(); i++) {
     if (checkEqual(states_[i].timestamp, timestamp)) {
@@ -481,8 +481,8 @@ size_t ImuEstimatorBase::insertImuState(
     state.id = backend_id;
     state.id_in_graph = states_[overlap_index].id_in_graph;
     state.imu_residual_to_lhs = states_[overlap_index].imu_residual_to_lhs;
-    auto it_cur = states_.insert(it_lhs, state);
-    if (State::overlaps.count(state.id_in_graph) == 0) {
+    auto it_cur = states_.insert(it_lhs, state);          // 在这里插入了states_
+    if (State::overlaps.count(state.id_in_graph) == 0) {  // 把重复的这对都插入到overlaps这里
       State::overlaps.insert(std::make_pair(state.id_in_graph, states_[overlap_index]));
     }
     State::overlaps.insert(std::make_pair(state.id_in_graph, (*it_cur)));
@@ -497,7 +497,7 @@ size_t ImuEstimatorBase::insertImuState(
     CHECK(use_prior) << "Cannot add new IMU state at the front of the state "
       << "window without motion prior!";
     // add parameter block at front
-    addPoseParameterBlock(backend_id, T_WS_prior);
+    addPoseParameterBlock(backend_id, T_WS_prior);  // 加参数块
     addImuSpeedAndBiasParameterBlock(backend_id, speed_and_bias_prior);
     State state;
     state.timestamp = timestamp;
@@ -506,7 +506,7 @@ size_t ImuEstimatorBase::insertImuState(
     states_.push_front(state);
     // connect current state to the next
     if (states_.size() > 1) {
-      addImuResidualBlock(states_[0], states_[1]);
+      addImuResidualBlock(states_[0], states_[1]);  // 加残差
     }
 
     imu_state_mutex_.unlock();
@@ -519,7 +519,7 @@ size_t ImuEstimatorBase::insertImuState(
     const State& last_state = states_[valid_state_index];
     Transformation T_WS = T_WS_prior;
     SpeedAndBias speed_and_bias = speed_and_bias_prior;
-    if (!use_prior) {
+    if (!use_prior) { // 不使用先验位姿的话就预积分来计算位姿
       getMotionFromEstimateAndImuIntegration(
         last_state, timestamp, T_WS, speed_and_bias);
     }

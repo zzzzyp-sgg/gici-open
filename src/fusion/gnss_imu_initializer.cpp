@@ -82,8 +82,8 @@ bool GnssImuInitializer::addMeasurement(const EstimatorDataCluster& measurement)
           role = SolutionRole::Position;
         }
         
-        GnssSolution gnss_solution = convertSolutionToGnssSolution(solution, role);
-        return addGnssSolutionMeasurement(gnss_solution);
+        GnssSolution gnss_solution = convertSolutionToGnssSolution(solution, role);   // 转成GNSS解
+        return addGnssSolutionMeasurement(gnss_solution);     // 把解加到gnss_solution
       }
     }
   }
@@ -145,11 +145,11 @@ bool GnssImuInitializer::addGnssSolutionMeasurement(
   double max_acc = 0.0;
   for (size_t i = 1; i < gnss_solution_measurements_.size(); i++) {
     if (has_any_velocity_measurement_) {
-      Eigen::Vector3d velocity = coordinate_->rotate(
+      Eigen::Vector3d velocity = coordinate_->rotate(       // 速度转到ENU
         gnss_solution_measurements_[i].velocity, GeoType::ECEF, GeoType::ENU);
       Eigen::Vector3d last_velocity = coordinate_->rotate(
         gnss_solution_measurements_[i - 1].velocity, GeoType::ECEF, GeoType::ENU);
-      if (imu_base_options_.car_motion) {
+      if (imu_base_options_.car_motion) {                   // 这里利用car_motion进行约束
         const double angular_velocity_norm = getImuMeasurementNear(
           gnss_solution_measurements_[i - 1].timestamp).angular_velocity.norm();
         if (last_velocity.norm() < 
@@ -166,7 +166,7 @@ bool GnssImuInitializer::addGnssSolutionMeasurement(
       double horizontal_acc = (velocity.head<2>().norm() - 
                               last_velocity.head<2>().norm()) / dt;
       if (horizontal_acc > max_acc) max_acc = horizontal_acc;
-      if (horizontal_acc > options_.min_acceleration) acc_ensured = true;
+      if (horizontal_acc > options_.min_acceleration) acc_ensured = true; // 认为有足够的运动激励
     }
     else if (i > 1) {
       GnssSolution& last_last = gnss_solution_measurements_[i - 2];
@@ -210,13 +210,13 @@ bool GnssImuInitializer::addGnssSolutionMeasurement(
   speed_and_bias_0_.head<3>() = initial_velocity;
   if (imu_base_options_.car_motion) {
     // compute initial yaw from GNSS velocity
-    initial_yaw = -atan2(initial_velocity(0), initial_velocity(1)) * R2D;
+    initial_yaw = -atan2(initial_velocity(0), initial_velocity(1)) * R2D;     // yaw角不可观，这里根据速度获得
   }
   // set initial yaw and put items to graph
   Eigen::Vector3d rpy = quaternionToEulerAngle(T_WS_0_.getEigenQuaternion());
-  rpy.z() = initial_yaw * D2R;
+  rpy.z() = initial_yaw * D2R;    // 改过的yaw
   Eigen::Quaterniond q_WS = eulerAngleToQuaternion(rpy);
-  putMeasurementAndStateToGraph(q_WS, speed_and_bias_0_);
+  putMeasurementAndStateToGraph(q_WS, speed_and_bias_0_);   // TODO 加到图优化框架里
 
   return true;
 }

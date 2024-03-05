@@ -96,7 +96,7 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
 
   for (auto index_pair : index_pairs) 
   {
-    const Satellite& satellite = 
+    const Satellite& satellite = // 先利用双差得到了一些之后可能会用的变量
       measurement_rov.getSat(index_pair.rov);
     const Satellite& satellite_base = 
       measurement_rov.getSat(index_pair.rov_base);
@@ -117,7 +117,7 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
 
     // add ambiguity parameter block
     double code = index_pair.rov.code_type;
-    double wavelength = observation.wavelength;
+    double wavelength = observation.wavelength; // FIXME 没用到啊，感觉可以用到赋初值的地方
     double phase_id = gnss_common::getPhaseID(system, code);
     BackendId ambiguity_id = createGnssAmbiguityId(satellite.prn, phase_id, id);
     CHECK(!graph_->parameterBlockExists(ambiguity_id.asInteger())) 
@@ -125,13 +125,13 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
       << phase_id << " has already been added!";
 
     // compute initial ambiguity state
-    double phaserange = observation.phaserange;
+    double phaserange = observation.phaserange; // 这里利用伪距和载波观测给了个初值
     double pseudorange = observation.pseudorange;
     double phaserange_ref = observation_ref.phaserange;
     double pseudorange_ref = observation_ref.pseudorange;
-    double ambiguity = phaserange - phaserange_ref - 
+    double ambiguity = phaserange - phaserange_ref -
                       (pseudorange - pseudorange_ref);
-
+    // TODO ambiguity /= wavelength;
     Eigen::Matrix<double, 1, 1> init;
     init[0] = ambiguity;
     std::shared_ptr<AmbiguityParameterBlock> ambiguity_parameter_block = 
@@ -140,7 +140,7 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
     state.ids.push_back(ambiguity_id);
 
     // add ambiguity parameter block for base satellite
-    BackendId ambiguity_base_id = 
+    BackendId ambiguity_base_id =   // 这里为作为基础的那颗卫星添加参数块
       createGnssAmbiguityId(satellite_base.prn, phase_id, id);
     if (!graph_->parameterBlockExists(ambiguity_base_id.asInteger())) 
     {
@@ -150,6 +150,11 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
       pseudorange_ref = observation_ref_base.pseudorange;
       ambiguity = phaserange - phaserange_ref - 
                         (pseudorange - pseudorange_ref);
+      // TODO 同理，这里是不是也可以利用上波长信息作为初值？
+      /**
+       * wavelength = observation_base.wavelength;
+       * ambiguity /= wavelength;
+        */
       Eigen::Matrix<double, 1, 1> init_base;
       init_base[0] = ambiguity;
       std::shared_ptr<AmbiguityParameterBlock> ambiguity_base_parameter_block = 
@@ -159,7 +164,7 @@ void GnssEstimatorBase::addSdAmbiguityParameterBlocks(
       state.ids.push_back(ambiguity_base_id);
 
       // add initial prior measurement
-      addAmbiguityResidualBlock(ambiguity_base_id, init_base[0], 
+      addAmbiguityResidualBlock(ambiguity_base_id, init_base[0],  // 在构建误差的时候会执行setInformation的操作
         gnss_base_options_.error_parameter.initial_ambiguity);
     }
   }
@@ -260,7 +265,7 @@ void GnssEstimatorBase::addDdPseudorangeResidualBlocks(
     {
       const GnssMeasurementIndex& index = index_pair.rov;
       const Satellite& satellite = measurement_rov.getSat(index);
-      std::vector<Observation> observations_frequency;
+      std::vector<Observation> observations_frequency;  // FIXME 没用到啊
       char system = satellite.getSystem();
       std::string prn = satellite.prn;
 
@@ -273,9 +278,9 @@ void GnssEstimatorBase::addDdPseudorangeResidualBlocks(
       }
       if (use_single_frequency && num_code_used.at(prn) > 0) continue;
 
-      // position in ECEF for standalone 
+      // position in ECEF for standalone
       if (parameter_id.type() == IdType::gPosition) {
-        is_state_pose_ = false;
+        is_state_pose_ = false; // ECEF框架下
         std::shared_ptr<PseudorangeErrorDD<3>> pseudorange_error = 
           std::make_shared<PseudorangeErrorDD<3>>(
           measurement_rov, measurement_ref, 
@@ -287,10 +292,10 @@ void GnssEstimatorBase::addDdPseudorangeResidualBlocks(
       }
       // pose in ENU for fusion
       else {
-        is_state_pose_ = true;
+        is_state_pose_ = true;  // ENU框架下
         BackendId pose_id = state.id_in_graph;
         std::shared_ptr<PseudorangeErrorDD<7, 3>> pseudorange_error = 
-          std::make_shared<PseudorangeErrorDD<7, 3>>(
+          std::make_shared<PseudorangeErrorDD<7, 3>>( // 主要是进行构建这个残差
           measurement_rov, measurement_ref, 
           index_pair.rov, index_pair.ref, index_pair.rov_base, index_pair.ref_base,
           gnss_base_options_.error_parameter); 

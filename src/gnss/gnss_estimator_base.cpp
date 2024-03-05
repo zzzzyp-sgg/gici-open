@@ -37,9 +37,9 @@ BackendId GnssEstimatorBase::addGnssPositionParameterBlock(
   const int32_t id, const Eigen::Vector3d& prior)
 {
   BackendId position_id = createGnssPositionId(id);
-  std::shared_ptr<PositionParameterBlock> position_parameter_block = 
+  std::shared_ptr<PositionParameterBlock> position_parameter_block =  // 创建参数块
     std::make_shared<PositionParameterBlock>(prior, position_id.asInteger());
-  CHECK(graph_->addParameterBlock(position_parameter_block));
+  CHECK(graph_->addParameterBlock(position_parameter_block));   // 加到图中
   return position_id;
 }
 
@@ -78,10 +78,10 @@ void GnssEstimatorBase::addClockParameterBlocks(
   // Add clock parameter for each system
   for (size_t i = 0; i < getGnssSystemList().size(); i++) 
   {
-    const char system = getGnssSystemList()[i];
-    BackendId clock_id = createGnssClockId(system, id);
+    const char system = getGnssSystemList()[i];               // 对系统进行遍历
+    BackendId clock_id = createGnssClockId(system, id);       // 所以这个里面是系统间的钟差
     if (gnss_common::useSystem(gnss_base_options_.common, system) && 
-        !graph_->parameterBlockExists(clock_id.asInteger())) 
+        !graph_->parameterBlockExists(clock_id.asInteger()))  // 确保之前没有添加过
     {
       Eigen::Matrix<double, 1, 1> clock_init;
       clock_init.setZero();
@@ -94,12 +94,12 @@ void GnssEstimatorBase::addClockParameterBlocks(
 
   // Check if any system does not have valid satellite
   std::map<char, int> system_observation_cnt;
-  for (size_t i = 0; i < getGnssSystemList().size(); i++) {
+  for (size_t i = 0; i < getGnssSystemList().size(); i++) { // 先看用了哪几个系统
     const char system = getGnssSystemList()[i];
     if (!gnss_common::useSystem(gnss_base_options_.common, system)) continue;
     system_observation_cnt.insert(std::make_pair(system, 0));
   }
-  for (auto& sat : measurement.satellites) 
+  for (auto& sat : measurement.satellites)                  // 再统计每个系统的观测数
   {
     auto& satellite = sat.second;
     char system = satellite.getSystem();
@@ -114,7 +114,7 @@ void GnssEstimatorBase::addClockParameterBlocks(
 
   // add pseudo-measurement for all systems to avoid rank deficiancy
   num_valid_system = 0;
-  for (auto it_system : system_observation_cnt)
+  for (auto it_system : system_observation_cnt) // 这里的遍历会对所有观测都进行遍历
   {
     char system = it_system.first;
     bool valid = it_system.second;
@@ -128,7 +128,7 @@ void GnssEstimatorBase::addClockParameterBlocks(
     Eigen::MatrixXd information = Eigen::MatrixXd::Identity(1, 1) * 1e-6;
     std::shared_ptr<ClockError> clock_error = 
       std::make_shared<ClockError>(measurement, information);
-    graph_->addResidualBlock(clock_error, nullptr, 
+    graph_->addResidualBlock(clock_error, nullptr,  // 残差和参数块在一个语句中加入了
       graph_->parameterBlockPtr(clock_id.asInteger()));
   }
 }
@@ -391,13 +391,13 @@ void GnssEstimatorBase::correctCodeBias(
 {
   CodeBiasPtr code_bias = measurement.code_bias;
   for (auto& sat : measurement.satellites) {
-    Satellite& satellite = sat.second;
-    std::string prn = satellite.prn;
+    Satellite& satellite = sat.second;        // 选择卫星
+    std::string prn = satellite.prn;          // 卫星的prn号
     for (auto& obs : satellite.observations) {
-      int code = obs.first;
-      Observation& observation = obs.second;
+      int code = obs.first;                   // 码(C1C C1W之类的码)
+      Observation& observation = obs.second;  // 观测值
       if (observation.pseudorange == 0.0) continue;
-      double bias = code_bias->getCodeBias(prn, code, accept_coarse);
+      double bias = code_bias->getCodeBias(prn, code, accept_coarse); // 得到差分码偏差
       if (bias == 0.0) {
         // code bias not availible
         observation.pseudorange = 0.0;
@@ -470,26 +470,26 @@ void GnssEstimatorBase::computeIonosphereDelay(
   {
     auto& satellite = sat.second;
     char system = satellite.getSystem();
-    std::vector<Observation> dual_frequency_observations;
+    std::vector<Observation> dual_frequency_observations; // 储存双频计算所需要到的观测值
     std::vector<Observation> valid_observations;
 
-    if (satellite.ionosphere_type == IonoType::Augmentation) continue;
+    if (satellite.ionosphere_type == IonoType::Augmentation) continue;    // 外部模型涉及到输入，所以这里跳出
     CHECK(satellite.ionosphere == 0.0);
 
-    if (!gnss_common::useSystem(gnss_base_options_.common, satellite.getSystem()) || 
+    if (!gnss_common::useSystem(gnss_base_options_.common, satellite.getSystem()) || // 确保系统和卫星的有效性
         !gnss_common::useSatellite(gnss_base_options_.common, satellite.prn)) continue;
 
     // Check if we can get initial ionosphere with dual-frequency
     double ionosphere_delay;
     IonoType type = IonoType::None;
     for (auto obs : satellite.observations) {
-      if (!checkObservationValid(measurement, 
+      if (!checkObservationValid(measurement,
           GnssMeasurementIndex(satellite.prn, obs.first))) continue;
       
       // Add to valid
       bool found = false;
       for (auto& it : valid_observations) {
-        if (checkEqual(it.wavelength, obs.second.wavelength)) {
+        if (checkEqual(it.wavelength, obs.second.wavelength)) { // 波长
           found = true; break;
         }
       }
@@ -497,7 +497,7 @@ void GnssEstimatorBase::computeIonosphereDelay(
 
       // only use bases frequencies to apply dual-frequency ionosphere calculation, 
       // or it may contain large IFB
-      CodeBias::BaseFrequencies bases = measurement.code_bias->getBase();
+      CodeBias::BaseFrequencies bases = measurement.code_bias->getBase(); // base frequency
       std::pair<int, int> base_pair = bases.at(system);
       int phase_id_base_lhs = 
         gnss_common::getPhaseID(system, base_pair.first);
@@ -505,6 +505,7 @@ void GnssEstimatorBase::computeIonosphereDelay(
         gnss_common::getPhaseID(system, base_pair.second);
       int phase_id = 
         gnss_common::getPhaseID(system, obs.first);
+      /* 观测值必须和base frequency中至少一个相同 */
       if (phase_id != phase_id_base_lhs && phase_id != phase_id_base_rhs) {
         continue;
       }
@@ -561,7 +562,7 @@ void GnssEstimatorBase::computeIonosphereDelay(
           satellite.sat_position, position);
         double wavelength = valid_observations[0].wavelength;
         Eigen::VectorXd iono_parameters = measurement.ionosphere_parameters;
-        ionosphere_delay = gnss_common::ionosphereBroadcast(timestamp, position, 
+        ionosphere_delay = gnss_common::ionosphereBroadcast(timestamp, position, // 广播星历模型计算电离层
           azimuth, elevation, wavelength, iono_parameters);
         ionosphere_delay = gnss_common::ionosphereConvertToBase(
           ionosphere_delay, wavelength);
@@ -584,7 +585,7 @@ void GnssEstimatorBase::addPseudorangeResidualBlocks(
 {
   CHECK(!(use_single_frequency && is_verbose_model_));
   num_valid_satellite = 0;
-  const BackendId parameter_id = state.id;
+  const BackendId parameter_id = state.id;  // 外部是让curGNSS()和curState()的ID一致了
 
   // None precise mode. 
   // Do not estimate atmosphere, we correct them by models or measurements. 
@@ -593,8 +594,8 @@ void GnssEstimatorBase::addPseudorangeResidualBlocks(
   {
     for (auto& sat : measurement.satellites) 
     {
-      const Satellite& satellite = sat.second;
-      std::vector<Observation> observations_frequency;
+      const Satellite& satellite = sat.second;          // 卫星的信息：位置、速度等
+      std::vector<Observation> observations_frequency;  // FIXME 好像没用到啊
       char system = satellite.getSystem();
 
       if (!gnss_common::useSystem(gnss_base_options_.common, system) || 
@@ -624,7 +625,7 @@ void GnssEstimatorBase::addPseudorangeResidualBlocks(
         if (parameter_id.type() == IdType::gPosition) {
           is_state_pose_ = false;
           std::shared_ptr<PseudorangeError<3, 1>> pseudorange_error = 
-            std::make_shared<PseudorangeError<3, 1>>(measurement, 
+            std::make_shared<PseudorangeError<3, 1>>(measurement,   // measurement包含误差项
             GnssMeasurementIndex(satellite.prn, obs.first), 
             gnss_base_options_.error_parameter);
           residual_id = graph_->addResidualBlock(pseudorange_error, 
@@ -636,8 +637,8 @@ void GnssEstimatorBase::addPseudorangeResidualBlocks(
         else {
           is_state_pose_ = true;
           BackendId pose_id = state.id_in_graph;
-          std::shared_ptr<PseudorangeError<7, 3, 1>> pseudorange_error = 
-            std::make_shared<PseudorangeError<7, 3, 1>>(measurement, 
+          std::shared_ptr<PseudorangeError<7, 3, 1>> pseudorange_error =  // ENU下是七维
+            std::make_shared<PseudorangeError<7, 3, 1>>(measurement,      // measurement包含误差项
             GnssMeasurementIndex(satellite.prn, obs.first), 
             gnss_base_options_.error_parameter);
           pseudorange_error->setCoordinate(coordinate_);
@@ -911,7 +912,7 @@ void GnssEstimatorBase::addAmbiguityResidualBlock(
   Eigen::Matrix<double, 1, 1> covariance = 
     Eigen::Matrix<double, 1, 1>::Identity() * square(std);
   const Eigen::Map<const Eigen::VectorXd> amb_init(&value, 1);
-  std::shared_ptr<SingleAmbiguityError> amb_error = 
+  std::shared_ptr<SingleAmbiguityError> amb_error =   // 在构建误差的时候会执行setInformation的操作
     std::make_shared<SingleAmbiguityError>(amb_init, covariance.inverse());
   graph_->addResidualBlock(amb_error, nullptr,
     graph_->parameterBlockPtr(amb_id.asInteger()));

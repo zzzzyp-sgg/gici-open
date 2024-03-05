@@ -292,7 +292,7 @@ void rearrangePhasesAndCodes(GnssMeasurement& measurement, bool accept_coarse)
     char system = prn[0];
     Satellite& satellite = sat.second;
     std::unordered_map<int, Observation>& observations = satellite.observations;
-    std::unordered_map<int, Observation> arranged_observations;
+    std::unordered_map<int, Observation> arranged_observations;   // 重新排序的观测
     for (auto it = observations.begin(); it != observations.end(); it++) {
       std::pair<int, Observation> arranged_observation;
       int code = it->first;
@@ -301,7 +301,7 @@ void rearrangePhasesAndCodes(GnssMeasurement& measurement, bool accept_coarse)
       int default_code = 0;
 #define MAP(S, P, C) \
   if (system == S && phase_id == P) { default_code = C; }
-  PHASE_CHANNEL_TO_DEFAULT_CODE;
+  PHASE_CHANNEL_TO_DEFAULT_CODE;  // 为每个载波相位分配默认的码
 #undef MAP
       bool can_add = true;
       // do not need to arrange
@@ -325,7 +325,7 @@ void rearrangePhasesAndCodes(GnssMeasurement& measurement, bool accept_coarse)
         }
         // use code bias to arrange
         else {
-          observation.pseudorange += bias - default_bias;
+          observation.pseudorange += bias - default_bias; // 相当于把伪距观测值也对齐到默认码下面
           arranged_observation = std::make_pair(default_code, observation);
         }
       }
@@ -626,12 +626,18 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
 {
   // Form SD pair
   GnssMeasurementSDIndexPairs sd_pairs = formPhaserangeSDPair(
-    measurement_rov, measurement_ref, options);
+    measurement_rov, measurement_ref, options); // 先对接收机间做一个单差
 
   // Prepare data
+  /**
+   * prn_to_number_phases 卫星和载波相位数对应起来
+   * prn_to_index         每一个卫星prn所对应的在单差sd_pairs的索引
+   * prn_to_phases        prn和载波相位对应起来
+   * system_to_num_phases 卫星系统和载波相位的对应，每一种系统挑出载波观测最多的以可卫星      
+   */
   std::map<char, int> system_to_num_phases;
-  std::multimap<char, double> system_to_phases;
-  std::map<std::string, int> prn_to_number_phases; 
+  std::multimap<char, double> system_to_phases; // FIXME 没用到
+  std::map<std::string, int> prn_to_number_phases;
   std::multimap<std::string, double> prn_to_phases;
   std::multimap<std::string, int> prn_to_indexes;
   for (size_t i = 0; i < sd_pairs.size(); i++) {
@@ -641,12 +647,12 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
     if (it == prn_to_number_phases.end()) {
       prn_to_number_phases.insert(std::make_pair(prn, 1));
     }
-    else it->second++;
-    prn_to_indexes.insert(std::make_pair(prn, i));
+    else it->second++;  // 每一颗卫星出现的次数
+    prn_to_indexes.insert(std::make_pair(prn, i));  // 把prn和索引对应起来
     int code = sd_pairs[i].rov.code_type;
-    double wavelength = measurement_rov.getObs(sd_pairs[i].rov).wavelength;
-    int phase_id = getPhaseID(prn[0], code);
-    prn_to_phases.insert(std::make_pair(prn, phase_id));
+    double wavelength = measurement_rov.getObs(sd_pairs[i].rov).wavelength; // FIXME 这个变量没用到吧
+    int phase_id = getPhaseID(prn[0], code);  // 这个是根据code找到对应的相位
+    prn_to_phases.insert(std::make_pair(prn, phase_id));  // prn和码对应起来
   }
   for (size_t i = 0; i < getGnssSystemList().size(); i++) {
     char system = getGnssSystemList()[i];
@@ -655,7 +661,7 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
     for (auto it : prn_to_number_phases) {
       if (it.first[0] != system) continue;
       if (system_to_num_phases.at(system) < it.second) {
-        system_to_num_phases.at(system) = it.second;
+        system_to_num_phases.at(system) = it.second;      // 这里是每一个系统找到一个最多的
       }
     }
 
@@ -688,12 +694,12 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
       if (prn_to_number_phases.at(sd_pairs[j].rov.prn) != 
           system_to_num_phases.at(system)) continue;
 
-      double elevation = satelliteElevation(
+      double elevation = satelliteElevation(  // 相对参考站的卫星高度角
         measurement_ref.getSat(sd_pairs[j].ref).sat_position, 
         measurement_ref.position);
       if (max_elevation < elevation) {
         system_to_base_prn[system] = sd_pairs[j].rov.prn;
-        max_elevation = elevation;
+        max_elevation = elevation;          // 找到最大的卫星高度角
       }
     }
   }
@@ -701,11 +707,11 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
   // Form DD pair
   GnssMeasurementDDIndexPairs dd_pairs;
   for (size_t i = 0; i < sd_pairs.size(); i++) {
-    char system = sd_pairs[i].rov.prn[0];
+    char system = sd_pairs[i].rov.prn[0]; 
     std::string prn = sd_pairs[i].rov.prn;
     std::string prn_base = system_to_base_prn.at(system);
 
-    if (prn == prn_base) continue;
+    if (prn == prn_base) continue;  // 同一颗卫星无法形成双差
 
     for (auto it = prn_to_indexes.lower_bound(prn_base); 
          it != prn_to_indexes.upper_bound(prn_base); it++) {
@@ -713,7 +719,7 @@ GnssMeasurementDDIndexPairs formPhaserangeDDPair(
       int phase_id_base = getPhaseID(system, sd_pair_base.rov.code_type);
       int phase_id = getPhaseID(system, sd_pairs[i].rov.code_type);
       if (phase_id_base == phase_id) {
-        dd_pairs.push_back(GnssMeasurementDDIndexPair(
+        dd_pairs.push_back(GnssMeasurementDDIndexPair(  // 形成了双差结构
           sd_pairs[i].rov, sd_pairs[i].ref, sd_pair_base.rov, sd_pair_base.ref));
         break;
       }

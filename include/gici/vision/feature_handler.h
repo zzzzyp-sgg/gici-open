@@ -144,7 +144,7 @@ private:
 
   // Get current frame bundle
   FrameBundlePtr& curFrames() {
-    return getCurrent(frame_bundles_);
+    return getCurrent(frame_bundles_);  // 返回frame_bundles_.back()
   }
 
   // Keyframe selection criterion.

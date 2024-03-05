@@ -40,15 +40,15 @@ bool initPoseAndBiases(const ImuMeasurements& imu_measurements,
     // if (fabs(imu_measurements[i].linear_acceleration.norm() - gravity) > 0.5 || 
     //     fabs(imu_measurements[i].angular_velocity.norm()) > 0.05) continue;
     double acc_norm = fabs(imu_measurements[i].linear_acceleration.norm() - gravity);
-    if (acc_norm > 0.5) continue;
+    if (acc_norm > 0.5) continue;     // 判断是不是低速运动状态
 
     acc_B += imu_measurements[i].linear_acceleration;
     gyro_B += imu_measurements[i].angular_velocity;
     n_valid_measurements++;
   }
   if (n_measurements == 0) return false;
-  else if (n_valid_measurements != n_measurements) return false;
-  acc_B /= static_cast<double>(n_measurements);
+  else if (n_valid_measurements != n_measurements) return false;  // 确保用来初始化的IMU观测量都是低速运动状态
+  acc_B /= static_cast<double>(n_measurements);                   // 加速度和角速度取平均
   gyro_B /= static_cast<double>(n_measurements);
 #else
   std::vector<double> acc[3], gyro[3];
@@ -79,19 +79,19 @@ bool initPoseAndBiases(const ImuMeasurements& imu_measurements,
   gyro_B /= static_cast<double>(imu_measurements.size());
 #endif
 
-  Eigen::Vector3d e_acc = acc_B.normalized();
+  Eigen::Vector3d e_acc = acc_B.normalized();     // 相当于平均加速度的单位向量
 
   // align with ez_W:
-  Eigen::Vector3d ez_W(0.0, 0.0, 1.0);
+  Eigen::Vector3d ez_W(0.0, 0.0, 1.0);            // world系的单位向量
   Eigen::Matrix<double, 6, 1> pose_increment;
   pose_increment.head<3>() = Eigen::Vector3d::Zero();
   //! @todo this gives a bad result if ez_W.cross(e_acc) norm is
   //! close to zero, deal with it!
-  pose_increment.tail<3>() = ez_W.cross(e_acc).normalized();
-  double angle = std::acos(ez_W.transpose() * e_acc);
-  pose_increment.tail<3>() *= angle;
-  T_WS = Transformation::exp(-pose_increment) * T_WS;
-  T_WS.getRotation().normalize();
+  pose_increment.tail<3>() = ez_W.cross(e_acc).normalized();  // cross得到的是旋转轴
+  double angle = std::acos(ez_W.transpose() * e_acc);         // 两个向量之间的夹角
+  pose_increment.tail<3>() *= angle;                          // 相当于得到了绕着旋转轴旋转一定角度的旋转向量
+  T_WS = Transformation::exp(-pose_increment) * T_WS;         // 位姿变换
+  T_WS.getRotation().normalize();                             // 更新后的位姿归一化
 
   // biases
   // Eigen::Vector3d g(0.0, 0.0, gravity);

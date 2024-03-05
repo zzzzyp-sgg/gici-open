@@ -34,7 +34,7 @@ namespace gici {
 
 class MultiSensorEstimating : public EstimatingBase {
 public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW // 声明自定义类的内存分配函数，以确保内存对齐
 
   using Ptr = std::shared_ptr<MultiSensorEstimating>;
 
@@ -160,16 +160,16 @@ private:
   }
 
 protected:
-  // Measurement data collection thread handles
+  // Measurement data collection thread handles(数据)
   std::unique_ptr<std::thread> measurement_thread_;
 
-  // Backend thread handles
+  // Backend thread handles(后端优化)
   std::unique_ptr<std::thread> backend_thread_;
 
-  // Front thread handles
+  // Front thread handles(视觉前端)
   std::unique_ptr<std::thread> image_frontend_thread_;
 
-  // Frontend control
+  // Frontend control(特征管理)
   std::shared_ptr<FeatureHandler> feature_handler_;
 
   // Coordinate
@@ -189,7 +189,7 @@ protected:
   // buffer to align timestamps of different sensor streams
   std::deque<EstimatorDataCluster> measurement_align_buffer_;
   double latest_imu_timestamp_;
-  // mutex to lock buffers and processes
+  // mutex to lock buffers and processes(用到的一些锁)
   std::mutex mutex_addin_, mutex_input_, mutex_image_input_;
   std::mutex mutex_output_;
 
@@ -215,7 +215,7 @@ protected:
   RtkImuCameraRrrEstimatorOptions rtk_imu_camera_rrr_options_;
 
   // Solutions
-  bool backend_firstly_updated_ = false;
+  bool backend_firstly_updated_ = false;  // 后端是否启用
 };
 
 }

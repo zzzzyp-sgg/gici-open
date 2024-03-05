@@ -35,7 +35,7 @@ struct EstimatorBaseOptions {
   // Ceres solver type
   ceres::LinearSolverType solver_type = ceres::DENSE_SCHUR;
 
-  // Ceres trust region strategy type
+  // Ceres trust region strategy type 信任域策略：决定在优化过程中如何调整步长并控制迭代的方法。
   ceres::TrustRegionStrategyType trust_region_strategy_type = ceres::DOGLEG;
 
   // Verbose optimization output
@@ -51,7 +51,7 @@ struct EstimatorBaseOptions {
   // If we should compute covariance
   bool compute_covariance = true;
 
-  // Log estimator intermediate information
+  // Log estimator intermediate information(记录中间信息)
   bool log_intermediate_data = false;
 
   // Log estiamtor intermediate information to this directory if enabled

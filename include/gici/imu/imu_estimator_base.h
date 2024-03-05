@@ -22,7 +22,7 @@ struct ImuEstimatorBaseOptions {
 
   // IMU to car rotation (deg) (body frame: right, forward, up)
   // This is to avoid the y-axis rotating to 90 degree, which will cause gimbal lock.
-  Eigen::Vector3d body_to_imu_rotation = Eigen::Vector3d::Zero();
+  Eigen::Vector3d body_to_imu_rotation = Eigen::Vector3d::Zero(); // loadOptions时读取值
 
   // STD of IMU to body rotation (deg)
   // This will be used in car motion mode to apply non-holonomic constraints.

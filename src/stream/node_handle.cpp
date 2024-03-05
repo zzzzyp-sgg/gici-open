@@ -171,7 +171,7 @@ void NodeHandle::bindStreamerToFormatorToEstimator(const NodeOptionHandlePtr& no
     }
 
     // initialize data integration handles
-    std::vector<std::shared_ptr<DataIntegrationBase>> data_integrations;
+    std::vector<std::shared_ptr<DataIntegrationBase>> data_integrations;  // TODO 数据的储存
     data_integrations.push_back(std::make_shared<GnssDataIntegration>(
       estimating, gnss_streamings, gnss_tags, gnss_roles));
     data_integrations.push_back(std::make_shared<ImuDataIntegration>(

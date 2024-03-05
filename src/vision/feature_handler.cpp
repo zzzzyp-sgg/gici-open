@@ -46,7 +46,7 @@ bool FeatureHandler::addImageBundle(
   if (!isFirstFrame())
   {
     // check if the timestamp is valid
-    if (lastFrames()->getMinTimestampSeconds() >= timestamp) {
+    if (lastFrames()->getMinTimestampSeconds() >= timestamp) {    // 时间戳错乱
       LOG(WARNING) << "Dropping frame: timestamp older than last frame of id " 
       << lastFrames()->getBundleId();
       return false;
@@ -57,13 +57,13 @@ bool FeatureHandler::addImageBundle(
   std::vector<FramePtr> frames;
   for (size_t i = 0; i < imgs.size(); ++i)
   {
-    frames.push_back(std::make_shared<Frame>(
-      cams_->getCameraShared(i), imgs[i]->clone(), 
+    frames.push_back(std::make_shared<Frame>(       // 进行帧的构造
+      cams_->getCameraShared(i), imgs[i]->clone(),  /* 相机、图像、时间戳以及金字塔层数 */
       static_cast<int64_t>(timestamp * 1.0e9), options_.max_pyramid_level + 1));
     frames.back()->set_T_cam_imu(cams_->get_T_C_B(i));
     frames.back()->setNFrameIndex(i);
   }
-  FrameBundlePtr frame_bundle(new FrameBundle(frames));
+  FrameBundlePtr frame_bundle(new FrameBundle(frames)); // TODO FrameBundle类
 
   // Add to pipeline.
   mutex_.lock();
@@ -95,6 +95,7 @@ bool FeatureHandler::processImageBundle()
   bool ret = processFrameBundle();
 
   // Shift memory
+  // 这里在最后创建了一个空指针的是为addImageBundle预留的空间
   frame_bundles_.push_back(std::make_shared<FrameBundle>(std::vector<FramePtr>()));
   if (map_->size() == 0) {
     while (frame_bundles_.size() > 3) {
@@ -198,10 +199,10 @@ bool FeatureHandler::needKeyFrame(
   if (global_scale_initialized_)
   {
     const double a =
-        Quaternion::log(frame->T_f_w_.getRotation() *
+        Quaternion::log(frame->T_f_w_.getRotation() *         // 根据四元数得到旋转的角度
                         keyframe->T_f_w_.getRotation().inverse()).norm()
             * 180/M_PI;
-    const double d = (frame->pos() - keyframe->pos()).norm();
+    const double d = (frame->pos() - keyframe->pos()).norm(); // 得到平移
     if (!(a < options_.kfselect_min_angle
         && d < options_.kfselect_min_dist_metric))
     {
@@ -259,16 +260,16 @@ void FeatureHandler::detectFeatures(const FramePtr& frame)
   const size_t n_new = new_px.cols();
   frame->resizeFeatureStorage(n_old + n_new);
   for(size_t i = 0, j = n_old; i < n_new; ++i, ++j) {
-    frame->px_vec_.col(j) = new_px.col(i);
-    frame->f_vec_.col(j) = new_f.col(i);
-    frame->grad_vec_.col(j) = new_grads.col(i);
-    frame->score_vec_(j) = new_scores(i);
-    frame->level_vec_(j) = new_levels(i);
-    frame->type_vec_[j] = FeatureType::kCorner;
+    frame->px_vec_.col(j) = new_px.col(i);      // 坐标
+    frame->f_vec_.col(j) = new_f.col(i);        // 方向
+    frame->grad_vec_.col(j) = new_grads.col(i); // 梯度
+    frame->score_vec_(j) = new_scores(i);       // 得分
+    frame->level_vec_(j) = new_levels(i);       // 金字塔层级
+    frame->type_vec_[j] = FeatureType::kCorner; // 类型
 
-    frame->landmark_vec_[j] = std::make_shared<Point>(Eigen::Vector3d::Zero());
-    frame->track_id_vec_(j) = frame->landmark_vec_[j]->id();
-    frame->landmark_vec_[j]->addObservation(frame, j);
+    frame->landmark_vec_[j] = std::make_shared<Point>(Eigen::Vector3d::Zero()); // 路标先置为空
+    frame->track_id_vec_(j) = frame->landmark_vec_[j]->id();                    // 对应的id应该也是空的？
+    frame->landmark_vec_[j]->addObservation(frame, j);                          // 先把观测关系建立起来
 
     frame->num_features_++;
   }
@@ -444,14 +445,14 @@ void FeatureHandler::addObservation(const FramePtr& frame)
 
   FramePtr ref_frame = getLast(frame_bundles_)->at(0);
   std::vector<std::pair<size_t, size_t>> matches;
-  getFeatureMatches(*ref_frame, *frame, &matches);
+  getFeatureMatches(*ref_frame, *frame, &matches);  // 就是根据3D点的ID来进行判断
   for (size_t i = 0; i < matches.size(); i++) {
-    PointPtr& landmark = ref_frame->landmark_vec_[matches[i].first];
+    PointPtr& landmark = ref_frame->landmark_vec_[matches[i].first];                // 根据参考帧得到路标点
     CHECK(landmark != nullptr);
 
-    frame->type_vec_[matches[i].second] = ref_frame->type_vec_[matches[i].first];
-    frame->landmark_vec_[matches[i].second] = landmark;
-    landmark->addObservation(frame, matches[i].second);
+    frame->type_vec_[matches[i].second] = ref_frame->type_vec_[matches[i].first];   // 把参考帧的信息设成当前帧的
+    frame->landmark_vec_[matches[i].second] = landmark;                             // 当前帧添加路标
+    landmark->addObservation(frame, matches[i].second);                             // 添加观测关系
   }
 
   mutex_.unlock();
@@ -473,8 +474,8 @@ void FeatureHandler::setKeyFrame(const FrameBundlePtr& frame_bundle)
   }
 
   // set as keyframe
-  frame_bundle->at(0)->setKeyframe();
-  frame_bundle->setKeyframe();
+  frame_bundle->at(0)->setKeyframe(); // 这里是FramePtr，也就是Frame对应的
+  frame_bundle->setKeyframe();        // 这个是FrameBundle对应的
 
   // add keyframe to map
   map_->addKeyframe(frame_bundle->at(0), true);
@@ -503,31 +504,31 @@ void FeatureHandler::initializeLandmarks(const FramePtr& keyframe)
     CHECK(landmark != nullptr);
 
     // already initialized
-    if (isSeed(frame->type_vec_[i])) continue;
+    if (isSeed(frame->type_vec_[i])) continue;  // 初始化过的就跳过
 
     // rejected by bundle adjuster
     if (frame->type_vec_[i] == FeatureType::kOutlier) continue;
 
     // get the last keyframe
     FramePtr ref_frame = nullptr;
-    size_t index_ref = 0;
+    size_t index_ref = 0; // 这里用逆向搜索，我觉得是认为与当前帧更近的参考帧得到的更准
     for (auto obs = landmark->obs_.rbegin(); obs != landmark->obs_.rend(); obs++) {
       if (FramePtr f = obs->frame.lock()) {
-        if (f->isKeyframe() && f->id() < frame->id() && f->has_transform_) {
+        if (f->isKeyframe() && f->id() < frame->id() && f->has_transform_) {  // 这里理论上已经初始化过位姿了
           ref_frame = f; 
           index_ref = obs->keypoint_index_;
         }
       }
     }
-    if (ref_frame == nullptr) continue;
-    if (ref_frame->id() == frame->id()) continue;
+    if (ref_frame == nullptr) continue;           // 没找到就跳出
+    if (ref_frame->id() == frame->id()) continue; // 当前帧和参考帧也不能是同一帧
 
     // check disparity
     double disparity = (ref_frame->px_vec_.col(index_ref) - 
       frame->px_vec_.col(i)).norm();
     if (disparity < options_.min_disparity_init_landmark) continue;
 
-    Transformation T_cur_ref = frame->T_f_w_ * ref_frame->T_f_w_.inverse();
+    Transformation T_cur_ref = frame->T_f_w_ * ref_frame->T_f_w_.inverse(); // 这里得到的是ref-cur吧
     BearingVector f_ref = ref_frame->f_vec_.col(index_ref);
     BearingVector f_cur = frame->f_vec_.col(i);
     double depth;
@@ -550,7 +551,7 @@ void FeatureHandler::initializeLandmarks(const FramePtr& keyframe)
 }
 
 // Initialize scale and landmarks at first
-bool FeatureHandler::initializeScale()
+bool FeatureHandler::initializeScale()  // TODO 这个函数没再被调用过了
 {
   mutex_.lock();
 

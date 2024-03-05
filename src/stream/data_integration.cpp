@@ -22,7 +22,7 @@ DataIntegrationBase::DataIntegrationBase(
   // Bind this->dataCallback to streamings
   for (const auto& streaming : streamings) {
     Streaming::DataCallback callback = std::bind(
-      &DataIntegrationBase::dataCallback, 
+      &DataIntegrationBase::dataCallback,           // 数据是在这里回调的
       this, std::placeholders::_1, std::placeholders::_2);
     streaming->setDataCallback(callback);
   }

@@ -2877,7 +2877,7 @@ extern void strunlock(stream_t *stream) {unlock(&stream->lock);}
 *-----------------------------------------------------------------------------*/
 extern int strread(stream_t *stream, uint8_t *buff, int n)
 {
-    uint32_t tick=tickget();
+    uint32_t tick=tickget();    // 获取时钟的当前值
     char *msg=stream->msg;
     int nr=0,tt;
 
@@ -2885,7 +2885,7 @@ extern int strread(stream_t *stream, uint8_t *buff, int n)
     
     if (!(stream->mode&STR_MODE_R)||!stream->port) return 0;
     
-    strlock(stream);
+    strlock(stream);    // 上锁，防止读取数据时发生数据冲突
     
     switch (stream->type) {
         case STR_SERIAL  : nr=readserial((serial_t *)stream->port,buff,n,msg); break;
@@ -2900,7 +2900,7 @@ extern int strread(stream_t *stream, uint8_t *buff, int n)
         case STR_FTP     : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
         case STR_HTTP    : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
         default:
-            strunlock(stream);
+            strunlock(stream);  // 解锁
             return 0;
     }
     if (nr>0) {
@@ -2910,7 +2910,7 @@ extern int strread(stream_t *stream, uint8_t *buff, int n)
     tt=(int)(tick-stream->tick_i);
     if (tt>=tirate) {
         stream->inr=
-            (uint32_t)((double)((stream->inb-stream->inbt)*8)/(tt*0.001));
+            (uint32_t)((double)((stream->inb-stream->inbt)*8)/(tt*0.001));  // 传输的速率
         stream->tick_i=tick;
         stream->inbt=stream->inb;
     }

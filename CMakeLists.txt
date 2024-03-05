@@ -4,7 +4,7 @@ project(gici)
 # Set build flags. 
 set(CMAKE_CXX_FLAGS "-std=c++11" )
 set(CMAKE_CXX_FLAGS "-fpermissive")
-set(CMAKE_BUILD_TYPE "Release") # Release 模式下用了一些库来加速
+set(CMAKE_BUILD_TYPE "Debug") # Release 模式下用了一些库来加速
 message(STATUS "${CMAKE_BUILD_TYPE}")
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
   if (IS_ARM)

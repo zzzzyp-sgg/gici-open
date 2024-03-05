@@ -290,20 +290,20 @@ int ImuError::redoPreintegration(const Transformation& /*T_WS*/,
 int ImuError::propagation(const ImuMeasurements& imu_measurements,
                           const ImuParameters& imu_params,
                           Transformation& T_WS,
-                          SpeedAndBias & speed_and_biases,
+                          SpeedAndBias& speed_and_biases,
                           const double& t_start,
                           const double& t_end,
                           covariance_t* covariance,
                           jacobian_t* jacobian)
 {
-  const double t_start_adjusted = t_start - imu_params.delay_imu_cam;
+  const double t_start_adjusted = t_start - imu_params.delay_imu_cam; // IMU和相机的时间延迟
   const double t_end_adjusted = t_end - imu_params.delay_imu_cam;
   // sanity check:
   bool modify_front = false, modify_back = false;;
   ImuMeasurements imu_measurements_modified;
   double dt0 = t_start_adjusted - imu_measurements.front().timestamp;
   double dt1 = t_end_adjusted - imu_measurements.back().timestamp;
-  if (dt0 < 0.0) {
+  if (dt0 < 0.0) { /* 确保时间有效 */
     LOG(ERROR) << "First IMU measurement included in imu_measurements is not old enough: "
       << std::fixed << t_start_adjusted << " vs " << imu_measurements.front().timestamp;
     modify_front = true;
@@ -324,19 +324,23 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
   }
   const ImuMeasurements *imu_measurements_ptr = 
     (modify_front || modify_back) ? &imu_measurements_modified : &imu_measurements;
+  /**
+   * CHECK_LE 宏函数，检查val1是否小于等于val2
+   * CHECK_GE 宏函数，检查val1是否大于等于val2
+  */
   CHECK_LE(imu_measurements_ptr->front().timestamp, t_start_adjusted);
   CHECK_GE(imu_measurements_ptr->back().timestamp, t_end_adjusted);
 
   // initial condition
-  Eigen::Vector3d r_0 = T_WS.getPosition();
-  Eigen::Quaterniond q_WS_0 = T_WS.getEigenQuaternion();
-  Eigen::Matrix3d C_WS_0 = T_WS.getRotationMatrix();
+  Eigen::Vector3d r_0 = T_WS.getPosition();               // 平移
+  Eigen::Quaterniond q_WS_0 = T_WS.getEigenQuaternion();  // 旋转
+  Eigen::Matrix3d C_WS_0 = T_WS.getRotationMatrix();      // 旋转矩阵
 
   // increments (initialise with identity)
   Eigen::Quaterniond Delta_q(1,0,0,0);
-  Eigen::Matrix3d C_integral = Eigen::Matrix3d::Zero();
+  Eigen::Matrix3d C_integral = Eigen::Matrix3d::Zero();   // 角增量
   Eigen::Matrix3d C_doubleintegral = Eigen::Matrix3d::Zero();
-  Eigen::Vector3d acc_integral = Eigen::Vector3d::Zero();
+  Eigen::Vector3d acc_integral = Eigen::Vector3d::Zero(); // 加速度
   Eigen::Vector3d acc_doubleintegral = Eigen::Vector3d::Zero();
 
   // jacobian
@@ -353,7 +357,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
   const ImuMeasurements& imu = *imu_measurements_ptr;
   for (size_t i = 0; i < imu.size() - 1; i++)
   {
-    if (!has_started && 
+    if (!has_started && /* 这里相当于对积分的起始时刻又限制了一遍 */
         !(imu[i].timestamp <= t_start_adjusted && 
         imu[i + 1].timestamp >= t_start_adjusted)) continue;
 
@@ -367,6 +371,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
     double dt = nexttime - time;
 
     // interpolate to end time point
+    /* 超出IMU观测量窗口的时间的话，就对齐到最后一个时间上 */
     if (t_end_adjusted < nexttime)
     {
       double interval = nexttime - imu[i].timestamp;
@@ -381,7 +386,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
     {
       continue;
     }
-    Delta_t += dt;
+    Delta_t += dt;  // 相对于起始时刻的时间差
 
     // interpolate to first time point
     if (!has_started)
@@ -403,7 +408,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
         || std::abs(omega_S_1[1]) > imu_params.g_max
         || std::abs(omega_S_1[2]) > imu_params.g_max)
     {
-      sigma_g_c *= 100;
+      sigma_g_c *= 100; /* 超出量程时放大了噪声 */
       LOG(WARNING)<< "gyr saturation: " 
                   << omega_S_0.norm() << ", " << omega_S_1.norm();
     }
@@ -426,6 +431,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
     const Eigen::Vector3d omega_S_true =
         (0.5 *(omega_S_0+omega_S_1) - speed_and_biases.segment<3>(3));
     const double theta_half = omega_S_true.norm() * 0.5 * dt;
+    /* sinc 计算的是sin(x)/x */
     const double sinc_theta_half = sinc(theta_half);
     const double cos_theta_half = cos(theta_half);
     dq.vec() = sinc_theta_half * omega_S_true * 0.5 * dt;
@@ -507,6 +513,7 @@ int ImuError::propagation(const ImuMeasurements& imu_measurements,
   }
 
   // actual propagation output:
+  /* 这里是把位姿都外推到最开始的时刻了 */
   const Eigen::Vector3d g_W = imu_params.g * Eigen::Vector3d(0, 0, 1.0);
   T_WS =
       Transformation(

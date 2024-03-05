@@ -65,7 +65,7 @@ PseudorangeError<Ns ...>::PseudorangeError(
     LOG(FATAL) << "PseudorangeError parameter blocks setup invalid!";
   }
 
-  setInformation(error_parameter);
+  setInformation(error_parameter);  // 信息矩阵
 }
 
 // Set the information.
@@ -77,9 +77,9 @@ void PseudorangeError<Ns ...>::setInformation(const GnssErrorParameter& error_pa
   Eigen::Vector3d factor;
   for (size_t i = 0; i < 3; i++) factor(i) = error_parameter_.phase_error_factor[i];
   double ratio = square(error_parameter_.code_to_phase_ratio);
-  double elevation = gnss_common::satelliteElevation(
+  double elevation = gnss_common::satelliteElevation( // 高度角
     satellite_.sat_position, measurement_.position);
-  double azimuth = gnss_common::satelliteAzimuth(
+  double azimuth = gnss_common::satelliteAzimuth(     // 方位角
     satellite_.sat_position, measurement_.position);
   double timestamp = measurement_.timestamp;
 
@@ -174,22 +174,22 @@ bool PseudorangeError<Ns ...>::EvaluateWithMinimalJacobians(
   double gmf_wet, gmf_hydro;
   
   // Position and clock
-  if (!is_estimate_body_) 
+  if (!is_estimate_body_)     // 判断是ECEF还是ENU
   {
     t_WR_ECEF = Eigen::Map<const Eigen::Vector3d>(parameters[0]);
-    clock = parameters[1][0];
+    clock = parameters[1][0]; // ECEF的话就只有位置和钟差
   }
   else 
   {
     // pose in ENU frame
-    t_WS_W = Eigen::Map<const Eigen::Vector3d>(&parameters[0][0]);
-    q_WS = Eigen::Map<const Eigen::Quaterniond>(&parameters[0][3]);
+    t_WS_W = Eigen::Map<const Eigen::Vector3d>(&parameters[0][0]);  // 位置
+    q_WS = Eigen::Map<const Eigen::Quaterniond>(&parameters[0][3]); // 姿态
 
     // relative position
-    t_SR_S = Eigen::Map<const Eigen::Vector3d>(parameters[1]);
+    t_SR_S = Eigen::Map<const Eigen::Vector3d>(parameters[1]);      // 相对位置
 
     // clock
-    clock = parameters[2][0];
+    clock = parameters[2][0]; // 钟差
 
     // receiver position
     Eigen::Vector3d t_WR_W = t_WS_W + q_WS * t_SR_S;
@@ -206,9 +206,9 @@ bool PseudorangeError<Ns ...>::EvaluateWithMinimalJacobians(
   // Earth tide
   double timestamp = measurement_.timestamp;
   Eigen::Vector3d tide = gnss_common::solidEarthTide(timestamp, t_WR_ECEF);
-  t_WR_ECEF += tide;
+  t_WR_ECEF += tide;  // 固体潮改正
   
-  double rho = gnss_common::satelliteToReceiverDistance(
+  double rho = gnss_common::satelliteToReceiverDistance(  // 距离
     satellite_.sat_position, t_WR_ECEF);
   double elevation = gnss_common::satelliteElevation(
     satellite_.sat_position, t_WR_ECEF);
@@ -222,10 +222,10 @@ bool PseudorangeError<Ns ...>::EvaluateWithMinimalJacobians(
     ifb = 0.0;
 
     // troposphere hydro-static delay
-    troposphere_delay = gnss_common::troposphereSaastamoinen(
+    troposphere_delay = gnss_common::troposphereSaastamoinen( // 计算对流程干延迟
       timestamp, t_WR_ECEF, elevation);
     // troposphere wet delay
-    if (measurement_.troposphere_wet != 0.0) {
+    if (measurement_.troposphere_wet != 0.0) {                // 湿延迟如果有就用GMF进行投影
       gnss_common::troposphereGMF(timestamp, t_WR_ECEF, elevation, nullptr, &gmf_wet);
       troposphere_delay += measurement_.troposphere_wet * gmf_wet;
     }
@@ -275,23 +275,23 @@ bool PseudorangeError<Ns ...>::EvaluateWithMinimalJacobians(
   }
 
   // Get estimate derivated measurement
-  double pseudorange_estimate = rho + clock - 
+  double pseudorange_estimate = rho + clock -            // 误差改正
     satellite_.sat_clock + ifb + troposphere_delay + ionosphere_delay;
 
   // Compute error
   double pseudorange = observation_.pseudorange;
-  Eigen::Matrix<double, 1, 1> error = 
+  Eigen::Matrix<double, 1, 1> error =                   // 残差
     Eigen::Matrix<double, 1, 1>(pseudorange - pseudorange_estimate);
 
   // weigh it
   Eigen::Map<Eigen::Matrix<double, 1, 1> > weighted_error(residuals);
-  weighted_error = square_root_information_ * error;
+  weighted_error = square_root_information_ * error;    // 设置权重
 
   // compute Jacobian
   if (jacobians != nullptr)
   {
     // Receiver position in ECEF
-    Eigen::Matrix<double, 1, 3> J_t_ECEF = 
+    Eigen::Matrix<double, 1, 3> J_t_ECEF =      // 单位向量
       -((t_WR_ECEF - satellite_.sat_position) / rho).transpose();
     
     // Poses
@@ -299,7 +299,7 @@ bool PseudorangeError<Ns ...>::EvaluateWithMinimalJacobians(
     Eigen::Matrix<double, 1, 3> J_t_SR_S;
     if (is_estimate_body_) {
       // Body position in ENU
-      Eigen::Matrix<double, 1, 3> J_t_W = J_t_ECEF * 
+      Eigen::Matrix<double, 1, 3> J_t_W = J_t_ECEF *
         coordinate_->rotationMatrix(GeoType::ENU, GeoType::ECEF);
 
       // Body rotation in ENU

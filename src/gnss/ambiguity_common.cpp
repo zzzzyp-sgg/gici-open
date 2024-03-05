@@ -69,7 +69,7 @@ void cycleSlipDetectionSD(GnssMeasurement& measurement_rov_pre,
     Observation observation_sd;
     observation_sd.pseudorange = dpseudorange;
     observation_sd.phaserange = dphaserange;
-    observation_sd.wavelength = observation_rov.wavelength;
+    observation_sd.wavelength = observation_rov.wavelength; // 单纯作差波长是不变的
     observation_sd.LLI = 0;
     observation_sd.slip = false;
     observation_sd.SNR = observation_rov.SNR;
@@ -145,7 +145,7 @@ void cycleSlipDetectionSD(GnssMeasurement& measurement_rov_pre,
 void cycleSlipDetectionLLI(GnssMeasurement& measurement_pre, 
                            GnssMeasurement& measurement_cur)
 {
-  for (auto& sat : measurement_cur.satellites) {
+  for (auto& sat : measurement_cur.satellites) {  // 先根据当前历元的LLI判断有没有周跳
     for (auto& obs : sat.second.observations) {
       Observation& observation = obs.second;
       if (observation.LLI & 1) {
@@ -154,7 +154,7 @@ void cycleSlipDetectionLLI(GnssMeasurement& measurement_pre,
       }
 
       // detect slip by parity unknown flag transition in LLI
-      uint8_t LLI_cur = observation.LLI;
+      uint8_t LLI_cur = observation.LLI;          // 再根据两个历元的LLI是否一样判断
       auto it_sat = measurement_pre.satellites.find(sat.first);
       if (it_sat == measurement_pre.satellites.end()) continue;
       auto it_obs = it_sat->second.observations.find(obs.first);
@@ -259,8 +259,8 @@ void cycleSlipDetectionGF(GnssMeasurement& measurement_pre,
       Observation& observation_cur_0 = measurement_cur.getObs(index_cur_0);
       Observation& observation_cur_1 = measurement_cur.getObs(index_cur_1);
 
-      double gf_pre = gnss_common::combinationGF(observation_pre_0, observation_pre_1);
-      double gf_cur = gnss_common::combinationGF(observation_cur_0, observation_cur_1);
+      double gf_pre = gnss_common::combinationGF(observation_pre_0, observation_pre_1); // 上一历元的GF值
+      double gf_cur = gnss_common::combinationGF(observation_cur_0, observation_cur_1); // 当前历元的GF值
 
       if (fabs(gf_pre - gf_cur) > threshold) {
         observation_cur_0.slip = true;

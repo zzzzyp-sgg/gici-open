@@ -36,10 +36,10 @@ void FeatureTracker::track(const FramePtr& ref_frame,
   
   std::vector<unsigned char> status;
   if (options_.use_relative_rotation && 
-      !checkEqual(q_cur_ref.coeffs(), Eigen::Quaterniond::Identity().coeffs())) {
+      !checkEqual(q_cur_ref.coeffs(), Eigen::Quaterniond::Identity().coeffs())) {     // 使用先验位姿
     // Predict feature pixel using relative orientation
-    predictFeatureTracking(ref_frame, cur_frame, q_cur_ref, ref_points, cur_points);
-
+    predictFeatureTracking(ref_frame, cur_frame, q_cur_ref, ref_points, cur_points);  // 感觉是给光流跟踪提供了个初始值
+                                                                                      // Vins里也有类似的操作，用速度给一个大概的初值
     cv::calcOpticalFlowPyrLK(ref_frame->img_pyr_[0], cur_frame->img_pyr_[0],
         ref_points, cur_points, status, cv::noArray(), 
         cv::Size(options_.window_size[0], options_.window_size[1]), 
@@ -71,13 +71,13 @@ void FeatureTracker::track(const FramePtr& ref_frame,
       status[i] = 0; continue;
     }
 
-    BearingVector bearing;
+    BearingVector bearing;    // using svo::BearingVector = Eigen::Matrix<double, 3, 1>
     cv::Point2f point;
     Eigen::Vector2d px = Eigen::Vector2d(ref_points[i].x, ref_points[i].y);
     ref_frame->cam()->backProject3(px, &bearing);
     point.x = bearing.x() / bearing.z();
     point.y = bearing.y() / bearing.z();
-    ref_bearings.push_back(point);
+    ref_bearings.push_back(point);  // 归一化坐标
 
     px = Eigen::Vector2d(cur_points[i].x, cur_points[i].y);
     cur_frame->cam()->backProject3(px, &bearing);
@@ -104,12 +104,12 @@ void FeatureTracker::track(const FramePtr& ref_frame,
 
     if (ref_frame->type_vec_[j] == FeatureType::kOutlier) continue;
 
-    if(!mask.empty() && mask.at<uint8_t>(
+    if(!mask.empty() && mask.at<uint8_t>(     // mask[i]=0的时候不设置新的特征点
       static_cast<int>(cur_points[j].y), static_cast<int>(cur_points[j].x)) == 0) {
       continue;
     }
 
-    size_t grid_index = grid.getCellIndex(cur_points[j].x,cur_points[j].y, 1);
+    size_t grid_index = grid.getCellIndex(cur_points[j].x,cur_points[j].y, 1);  // 特征点在哪个格网
     if (!grid.isOccupied(grid_index)) {
       cur_frame->resizeFeatureStorage(cur_frame->num_features_ + 1);
       size_t& index = cur_frame->num_features_;
@@ -123,7 +123,7 @@ void FeatureTracker::track(const FramePtr& ref_frame,
       grid.setOccupied(grid_index);
     }
   }
-  frame_utils::computeNormalizedBearingVectors(
+  frame_utils::computeNormalizedBearingVectors(   // 计算关键点的归一化方向向量
     cur_frame->px_vec_, *cur_frame->cam(), &cur_frame->f_vec_);
 }
 
@@ -141,7 +141,7 @@ void FeatureTracker::predictFeatureTracking(const FramePtr& ref_frame,
     Eigen::Vector2d px(ref_points[i].x, ref_points[i].y);
     BearingVector ref_bearing;
     ref_frame->cam()->backProject3(px, &ref_bearing);
-    BearingVector pre_bearing = R_cur_ref * ref_bearing;
+    BearingVector pre_bearing = R_cur_ref * ref_bearing;  // 只补偿旋转
     Eigen::Vector2d px_pre;
     cur_frame->cam()->project3(pre_bearing, &px_pre);
     pre_points[i] = cv::Point2f(px_pre(0), px_pre(1));

@@ -110,7 +110,7 @@ void EstimatingBase::run()
   SpinControl spin(1.0e-4);
   while (!quit_thread_ && SpinControl::ok()) {
     // Process funtion in every loop
-    process();
+    process();    // 主要的数据处理部分
 
     // Publish solution
     if (updateSolution()) {

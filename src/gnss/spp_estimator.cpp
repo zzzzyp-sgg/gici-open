@@ -68,10 +68,10 @@ bool SppEstimator::addGnssMeasurementAndState(
   // Get prior position
   Eigen::Vector3d position_prior = Eigen::Vector3d::Zero();
   if (!isFirstEpoch()) {
-    position_prior = getPositionEstimate();
+    position_prior = getPositionEstimate();               // 获得先验位置
   }
   else if (coordinate_) {
-    position_prior = coordinate_->getZero(GeoType::ECEF);
+    position_prior = coordinate_->getZero(GeoType::ECEF); // 转换到ECEF坐标系下
   }
   // no position prior, we should get a coarse inital position
   if (checkZero(curGnss().position)) {
@@ -85,7 +85,7 @@ bool SppEstimator::addGnssMeasurementAndState(
 
   // Set to local measurement handle
   curGnss() = measurement;
-  curGnss().position = position_prior;
+  curGnss().position = position_prior;  // 位置坐标先设置成先验坐标
 
   // Correct code bias
   correctCodeBias(curGnss());
@@ -97,16 +97,17 @@ bool SppEstimator::addGnssMeasurementAndState(
   double timestamp = measurement.timestamp;
   curState().timestamp = timestamp;
   // position block
-  BackendId position_id = addGnssPositionParameterBlock(curGnss().id, position_prior);
+  // TODO GNSS的图优化结构
+  BackendId position_id = addGnssPositionParameterBlock(curGnss().id, position_prior);  // 位置先验
   curState().id = position_id;
   curState().id_in_graph = position_id;
   // clock block
   int num_valid_system = 0;
-  addClockParameterBlocks(curGnss(), curGnss().id, num_valid_system);
+  addClockParameterBlocks(curGnss(), curGnss().id, num_valid_system); // 钟差
   
   // Add pseudorange residual blocks
   int num_valid_satellite = 0;
-  addPseudorangeResidualBlocks(curGnss(), curState(), num_valid_satellite, true);
+  addPseudorangeResidualBlocks(curGnss(), curState(), num_valid_satellite, true); // 伪距残差
 
   // Check if insufficient satellites
   if (!checkSufficientSatellite(num_valid_satellite, num_valid_system)) {
@@ -130,11 +131,11 @@ bool SppEstimator::estimate()
 {
   status_ = EstimatorStatus::Converged;
 
-  // Optimize with FDE
+  // Optimize with FDE(误差)
   if (gnss_base_options_.use_outlier_rejection)
   while (1)
   {
-    optimize();
+    optimize(); // 执行优化
     // reject outlier
     if (!rejectPseudorangeOutlier(curState(), 
         gnss_base_options_.reject_one_outlier_once)) break;
@@ -145,6 +146,7 @@ bool SppEstimator::estimate()
   }
 
   // Check DOP
+  // DOP值太高就把当前的都删掉
   bool dop_valid = true;
   curGnss().position = getPositionEstimate(curState());
   if (!checkZero(curGnss().position)) {
@@ -156,7 +158,7 @@ bool SppEstimator::estimate()
       // erase parameters
       Graph::ParameterBlockCollection parameters = graph_->parameters();
       for (auto parameter : parameters) graph_->removeParameterBlock(parameter.first);
-      states_.clear(); 
+      states_.clear(); // 这里直接清空
       dop_valid = false;
     }
   }
@@ -169,11 +171,11 @@ bool SppEstimator::estimate()
   for (auto residual_block : residual_blocks) {
     std::shared_ptr<ErrorInterface> interface = residual_block.error_interface_ptr;
     ErrorType type = interface->typeInfo();
-    if (!(type == ErrorType::kPseudorangeError)) continue;
+    if (!(type == ErrorType::kPseudorangeError)) continue;  // 伪距残差
     double residual[1];
     n_residual++;
     graph_->problem()->EvaluateResidualBlock(residual_block.residual_block_id, 
-      false, nullptr, residual, nullptr);
+      false, nullptr, residual, nullptr); // 计算残差和雅可比
     chi_square += square(residual[0]);
   }
   int chisqr_degree = n_residual - n_parameter - 1;

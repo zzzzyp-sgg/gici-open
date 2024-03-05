@@ -56,7 +56,7 @@ DopplerError<Ns ...>::DopplerError(
                        const Eigen::Vector3d& angular_velocity)
   : DopplerError(measurement, index, error_parameter)
 {
-  angular_velocity_ = angular_velocity;
+  angular_velocity_ = angular_velocity; // 在ENU融合框架下需要给角速度赋值
 }
 
 // Set the information.

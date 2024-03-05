@@ -124,7 +124,7 @@ bool PseudorangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
   double gmf_wet_rov_base, gmf_wet_ref_base, gmf_hydro_rov_base, gmf_hydro_ref_base;
   
   // Position and clock
-  if (!is_estimate_body_) 
+  if (!is_estimate_body_)   // ECEF框架下
   {
     t_WR_ECEF = Eigen::Map<const Eigen::Vector3d>(parameters[0]);
   }
@@ -151,11 +151,11 @@ bool PseudorangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
 
   double timestamp = measurement_rov_.timestamp;
 
-  double rho_rov = gnss_common::satelliteToReceiverDistance(
+  double rho_rov = gnss_common::satelliteToReceiverDistance(  // 接收机和卫星的距离
     satellite_rov_.sat_position, t_WR_ECEF);
   double rho_ref = gnss_common::satelliteToReceiverDistance(
     satellite_ref_.sat_position, measurement_ref_.position);
-  double rho_rov_base = gnss_common::satelliteToReceiverDistance(
+  double rho_rov_base = gnss_common::satelliteToReceiverDistance( // 接收机和base卫星的距离
     satellite_rov_base_.sat_position, t_WR_ECEF);
   double rho_ref_base = gnss_common::satelliteToReceiverDistance(
     satellite_ref_base_.sat_position, measurement_ref_.position);
@@ -202,7 +202,7 @@ bool PseudorangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
     double zhd_ref_base = gnss_common::troposphereSaastamoinen(
       timestamp, t_WR_ECEF, PI / 2.0);
     // mapping
-    gnss_common::troposphereGMF(
+    gnss_common::troposphereGMF(  // 投影函数模型
       timestamp, t_WR_ECEF, elevation_rov, &gmf_hydro_rov, &gmf_wet_rov);
     gnss_common::troposphereGMF(
       timestamp, t_WR_ECEF, elevation_ref, &gmf_hydro_ref, &gmf_wet_ref);
@@ -235,7 +235,7 @@ bool PseudorangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
 
   // weigh it
   Eigen::Map<Eigen::Matrix<double, 1, 1> > weighted_error(residuals);
-  weighted_error = square_root_information_ * error;
+  weighted_error = square_root_information_ * error;  // 利用在构造函数中得到的权重进行赋权的操作
 
   // compute Jacobian
   if (jacobians != nullptr)
@@ -267,7 +267,7 @@ bool PseudorangeErrorDD<Ns ...>::EvaluateWithMinimalJacobians(
     }
 
     // Troposphere
-    Eigen::Matrix<double, 1, 1> J_trop_rov = 
+    Eigen::Matrix<double, 1, 1> J_trop_rov =  // 对流层的雅可比，如果不估计的话这里后边不会考虑
       -(gmf_wet_rov - gmf_wet_rov_base) * Eigen::MatrixXd::Identity(1, 1);
     Eigen::Matrix<double, 1, 1> J_trop_ref = 
       (gmf_wet_ref - gmf_wet_ref_base) * Eigen::MatrixXd::Identity(1, 1);

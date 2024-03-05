@@ -344,7 +344,7 @@ void Streaming::enableReplay(StreamerReplayOptions option)
 void Streaming::processInput()
 {
   // Read data from stream
-  buf_size_input_ = streamer_->read(buf_input_, max_buf_size_); // 把文件先读到buf_input_h中
+  buf_size_input_ = streamer_->read(buf_input_, max_buf_size_); // 把文件先读到buf_input_中
   if (buf_size_input_ == 0) return;
 
   // Decode stream
@@ -360,8 +360,8 @@ void Streaming::processInput()
       // Call data callback
       if (data_callbacks_.size() > 0) 
         for (auto it : data_callbacks_) {
-        auto& data_callback = it;
-        data_callback(formators_[i].tag, dataset[iobs]);
+        auto& data_callback = it;                         // 用了std::function，相当于把tag和数据包装起来了
+        data_callback(formators_[i].tag, dataset[iobs]);  // 这里是为了后边可以直接调用对应的数据
       }
 
       // Call logger pipeline
@@ -371,13 +371,13 @@ void Streaming::processInput()
       auto& pipelines = it_i->second;
       for (auto it_j : pipelines) {
         auto& pipeline = it_j.second;
-        pipeline(formators_[i].tag, dataset[iobs]);
+        pipeline(formators_[i].tag, dataset[iobs]);       // 数据的编码格式
       }
     }
   }
 
   // Call direct pipeline
-  for (auto it : pipelines_direct_) {
+  for (auto it : pipelines_direct_) {       // 数据和logging直接联系起来
     auto& pipeline = it.second;
     pipeline(buf_input_, buf_size_input_);
   }
@@ -402,7 +402,7 @@ void Streaming::processOutput()
   streamer_->write(buf_output_, buf_size_output_);
 
   buf_size_output_ = 0;
-  need_output_ = false;
+  need_output_ = false; // 写完就置为false
 }
 
 // Loop processing
@@ -412,18 +412,18 @@ void Streaming::run()
   SpinControl spin(loop_duration_);
   while (!quit_thread_ && SpinControl::ok()) {
     if (has_input_) {
-      processInput();
+      processInput();           // 输入
     }
 
     if (has_logging_) {
       mutex_logging_.lock();
-      processLogging();
+      processLogging();         // 记录
       mutex_logging_.unlock();
     }
 
     if (has_output_) {
       mutex_output_.lock();
-      processOutput();
+      processOutput();          // 输出
       mutex_output_.unlock();
     }
 

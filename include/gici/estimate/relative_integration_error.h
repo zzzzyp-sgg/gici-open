@@ -52,7 +52,7 @@ public:
 
   /// \brief Construct with measurement and information matrix
   /// @param[in] PSD The Power Spectral Density
-  RelativeIntegrationError(const Eigen::Matrix<double, Dim, Dim>& psd, double dt) {
+  RelativeIntegrationError(const Eigen::Matrix<double, Dim, Dim>& psd, double dt) { // 设置权阵
     Eigen::MatrixXd covariance = Eigen::MatrixXd::Zero(2*Dim, 2*Dim);
     covariance.topLeftCorner(Dim, Dim) = psd * pow(dt, 3) / 3.0;
     covariance.topRightCorner(Dim, Dim) = psd * pow(dt, 2) / 2.0;

@@ -293,14 +293,14 @@ MultiSensorEstimating::MultiSensorEstimating(
       option_tools::loadOptions(ambiguity_node, ambiguity_options_);
     }
 
-    // rotate estrinsics
-    gnss_imu_init_options_.gnss_extrinsics = ImuEstimatorBase::rotateImuToBody(
+    // rotate estrinsics(旋转外参)
+    gnss_imu_init_options_.gnss_extrinsics = ImuEstimatorBase::rotateImuToBody( // body-->GNSS(RFU)
       gnss_imu_init_options_.gnss_extrinsics, imu_base_options_);
     gnss_imu_init_options_.gnss_extrinsics_initial_std = ImuEstimatorBase::rotateImuToBody(
       gnss_imu_init_options_.gnss_extrinsics_initial_std, imu_base_options_);
     CameraBundlePtr camera_bundle = feature_handler_options_.cameras;
     for (size_t i = 0; i < camera_bundle->numCameras(); i++) {
-      camera_bundle->set_T_C_B(i, ImuEstimatorBase::rotateImuToBody(
+      camera_bundle->set_T_C_B(i, ImuEstimatorBase::rotateImuToBody(  // body-->Camera,配置文件里应该是Camera相对IMU的
         camera_bundle->get_T_C_B(i).inverse(), imu_base_options_).inverse());
     }
 
@@ -319,8 +319,8 @@ MultiSensorEstimating::MultiSensorEstimating(
   }
 
   // For coordinate initialization
-  if (estimatorTypeContains(SensorType::GNSS, type_)) {
-    spp_estimator_.reset(new SppEstimator(gnss_base_options_));
+  if (estimatorTypeContains(SensorType::GNSS, type_)) {         // 因为GNSS解算所有模式都要用SPP
+    spp_estimator_.reset(new SppEstimator(gnss_base_options_)); // 所以这里也定义了一个SPP需要用的估计器
   }
 
   // Initial values
@@ -543,13 +543,13 @@ bool MultiSensorEstimating::updateSolution()
   // if we have GNSS, get GNSS variables
   if (estimatorTypeContains(SensorType::GNSS, type_)) {
     if (std::shared_ptr<GnssEstimatorBase> gnss_estimator = 
-      std::dynamic_pointer_cast<GnssEstimatorBase>(estimator_)) {
-      solution_.status = gnss_estimator->getSolutionStatus();
-      solution_.num_satellites = gnss_estimator->getNumberSatellite();
-      solution_.differential_age = gnss_estimator->getDifferentialAge();
+      std::dynamic_pointer_cast<GnssEstimatorBase>(estimator_)) {         // 紧组合
+      solution_.status = gnss_estimator->getSolutionStatus();             // 解的状态
+      solution_.num_satellites = gnss_estimator->getNumberSatellite();    // 卫星数
+      solution_.differential_age = gnss_estimator->getDifferentialAge();  // 差分龄期
     }
     else if (std::shared_ptr<GnssLooseEstimatorBase> gnss_estimator = 
-      std::dynamic_pointer_cast<GnssLooseEstimatorBase>(estimator_)) {
+      std::dynamic_pointer_cast<GnssLooseEstimatorBase>(estimator_)) {    // 松组合
       solution_.status = gnss_estimator->getSolutionStatus();
       solution_.num_satellites = gnss_estimator->getNumberSatellite();
       solution_.differential_age = gnss_estimator->getDifferentialAge();
@@ -570,7 +570,7 @@ bool MultiSensorEstimating::updateSolution()
 void MultiSensorEstimating::handleTimePropagationSensors(EstimatorDataCluster& data)
 {
   // only support IMU
-  CHECK(estimatorDataIsImu(data));
+  CHECK(estimatorDataIsImu(data));    // LOG记录信息
   if (estimator_) estimator_->addMeasurement(data);
   mutex_input_.lock();
   latest_imu_timestamp_ = data.timestamp;
@@ -595,17 +595,17 @@ void MultiSensorEstimating::handleNonTimePropagationSensors(EstimatorDataCluster
     if (!needTimeAlign(type_)) {
       measurement_align_buffer_.push_back(data);
     }
-    else if (measurement_align_buffer_.size() == 0 || 
-        data.timestamp >= measurement_align_buffer_.back().timestamp) {
+    else if (measurement_align_buffer_.size() == 0 ||                     // 没有数据
+        data.timestamp >= measurement_align_buffer_.back().timestamp) {   // 数据更新
       measurement_align_buffer_.push_back(data);
     }
     else if (data.timestamp <= measurement_align_buffer_.front().timestamp) {
-      if (data.timestamp < measurement_align_buffer_.back().timestamp - buffer_time) {
+      if (data.timestamp < measurement_align_buffer_.back().timestamp - buffer_time) {   // 比时间差的阈值要大
         LOG(WARNING) << "Throughing data at timestamp " << std::fixed << data.timestamp 
           << " because its latency is too large!";
       }
       else {
-        measurement_align_buffer_.push_front(data);
+        measurement_align_buffer_.push_front(data);     // 满足的话就加进去
       }
     }
     else
@@ -630,9 +630,9 @@ void MultiSensorEstimating::handleNonTimePropagationSensors(EstimatorDataCluster
 
     // we always add IMU measurement to estimator at a given timestamp before we 
     // add other sensor measurements.
-    EstimatorDataCluster& measurement = *it;
-    if (estimatorTypeContains(SensorType::IMU, type_) && 
-        measurement.timestamp > latest_imu_timestamp_) {
+    EstimatorDataCluster& measurement = *it;              // 把这个数据拿出来
+    if (estimatorTypeContains(SensorType::IMU, type_) &&  // 如果选择的解算传感器的类型包括IMU
+        measurement.timestamp > latest_imu_timestamp_) {  // 当前的时间戳如果比最新的参考还新
       it++; continue;
     }
 
@@ -642,21 +642,22 @@ void MultiSensorEstimating::handleNonTimePropagationSensors(EstimatorDataCluster
     measurements_.push_back(measurement);
 
     // check pending, sparcify if needed
-    if (enable_backend_data_sparsify_)
+    if (enable_backend_data_sparsify_)    // 是不是数据时间同步特别差的话就会挂掉了
     {
       if (measurements_.size() > pending_num_threshold_) {
-        pending_sparsify_num_++;
+        pending_sparsify_num_++;    // 等待稀疏的个数+1
       }
-      else if (pending_sparsify_num_ > 0) pending_sparsify_num_--;
-      if (pending_sparsify_num_) {
+      else if (pending_sparsify_num_ > 0) pending_sparsify_num_--;  // 比阈值小但是有等待稀疏的话，就减少一个
+      if (pending_sparsify_num_) {  // 这里执行具体的稀疏数据操作
         LOG(WARNING) << "Backend pending! Sparsifying measurements with counter " 
                     << pending_sparsify_num_ << ".";
         for (int i = 0; i < pending_sparsify_num_; i++) {
           // some measurements we cannot erase
           if (measurements_.front().frame_bundle && 
-              measurements_.front().frame_bundle->isKeyframe()) break;
+              measurements_.front().frame_bundle->isKeyframe()) break;  // 关键帧留一下
           // erase front measurement
-          if (measurements_.size() > 1) measurements_.pop_front();
+          /* measurements_在processEstimator时也会向前丢出，所以理论上这里不会删除太多 */
+          if (measurements_.size() > 1) measurements_.pop_front();      // 不然就从前面剔除
         }
       }
     }
@@ -681,6 +682,7 @@ void MultiSensorEstimating::handleFrontendSensors(EstimatorDataCluster& data)
 void MultiSensorEstimating::putMeasurements()
 {
   // get data
+  /* measurement_addin_buffer_是在estimatorDataCallback里push_back的 */
   mutex_addin_.lock();
   if (measurement_addin_buffer_.size() == 0) {
     mutex_addin_.unlock(); return;
@@ -843,8 +845,8 @@ void MultiSensorEstimating::runImageFrontend()
     }
 
     // Check if timestamp is valid
-    if (!feature_handler_->isFirstFrame() && 
-        feature_handler_->getFrameBundle()->getMinTimestampSeconds() >= 
+    if (!feature_handler_->isFirstFrame() &&                            // 判断是不是第一帧
+        feature_handler_->getFrameBundle()->getMinTimestampSeconds() >= // 时间戳错乱
         front_measurement.timestamp) {
       LOG(WARNING) << "Image timestamp descending detected! ("
         << std::fixed << front_measurement.timestamp << " vs " 
@@ -855,7 +857,7 @@ void MultiSensorEstimating::runImageFrontend()
     }
 
     // Check pending
-    if (image_frontend_measurements_.size() > 5) {
+    if (image_frontend_measurements_.size() > 5) {    // 等待处理的帧数
       if (last_image_pending_num_ != image_frontend_measurements_.size()) {
         LOG(WARNING) << "Large image frontend pending: " 
                      << image_frontend_measurements_.size()
